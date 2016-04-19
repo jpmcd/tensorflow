@@ -44,7 +44,8 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from tensorflow.models.image.cifar10 import cifar10
+#from tensorflow.models.image.cifar10 import cifar10
+import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -61,20 +62,27 @@ def train():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
     global_step = tf.Variable(0, trainable=False)
+    st_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
-    images, labels = cifar10.distorted_inputs()
+    with tf.device('/cpu:0'):
+      images, labels = cifar10.distorted_inputs()
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
     logits = cifar10.inference(images)
+    with tf.variable_scope('student') as st_scope:
+      st_logits = cifar10.inference(images)
 
     # Calculate loss.
     loss = cifar10.loss(logits, labels)
+    with tf.variable_scope(st_scope):
+      st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
     train_op = cifar10.train(loss, global_step)
+    st_train_op = cifar10.train(st_loss, st_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
@@ -99,18 +107,21 @@ def train():
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
       _, loss_value = sess.run([train_op, loss])
+      _, st_loss_value = sess.run([st_train_op, st_loss])
       duration = time.time() - start_time
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+      assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
 
       if step % 10 == 0:
         num_examples_per_step = FLAGS.batch_size
         examples_per_sec = num_examples_per_step / duration
         sec_per_batch = float(duration)
 
-        format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
+        format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f (%.1f examples/sec; %.3f '
                       'sec/batch)')
         print (format_str % (datetime.now(), step, loss_value,
+                                st_loss_value,
                              examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:

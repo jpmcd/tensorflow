@@ -44,7 +44,8 @@ import tarfile
 from six.moves import urllib
 import tensorflow as tf
 
-from tensorflow.models.image.cifar10 import cifar10_input
+#from tensorflow.models.image.cifar10 import cifar10_input
+import cifar10_input
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -273,6 +274,15 @@ def loss(logits, labels):
 
   # The total loss is defined as the cross entropy loss plus all of the weight
   # decay terms (L2 loss).
+  return tf.add_n(tf.get_collection('losses'), name='total_loss')
+
+
+def target_loss(logits, targets):
+  cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+      logits, targets, name='cross_entropy_per_example')
+  cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+  tf.add_to_collection('losses', cross_entropy_mean)
+
   return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
 
