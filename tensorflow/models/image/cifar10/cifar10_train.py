@@ -82,7 +82,8 @@ def train():
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
     train_op = cifar10.train(loss, global_step)
-    st_train_op = cifar10.train(st_loss, st_global_step)
+    with tf.variable_scope(st_scope):
+      st_train_op = cifar10.train(st_loss, st_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
