@@ -61,8 +61,10 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 def train():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-    global_step = tf.Variable(0, trainable=False)
-    st_global_step = tf.Variable(0, trainable=False)
+    with tf.variable_scope('model') as m_scope:
+      global_step = tf.Variable(0, trainable=False)
+    with tf.variable_scope('student') as st_scope:
+      st_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
@@ -70,18 +72,21 @@ def train():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = cifar10.inference(images)
-    with tf.variable_scope('student') as st_scope:
+    with tf.variable_scope(m_scope):
+      logits = cifar10.inference(images)
+    with tf.variable_scope(st_scope):
       st_logits = cifar10.inference(images)
 
     # Calculate loss.
-    loss = cifar10.loss(logits, labels)
+    with tf.variable_scope(m_scope):
+      loss = cifar10.loss(logits, labels)
     with tf.variable_scope(st_scope):
       st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
-    train_op = cifar10.train(loss, global_step)
+    with tf.variable_scope(m_scope):
+      train_op = cifar10.train(loss, global_step)
     with tf.variable_scope(st_scope):
       st_train_op = cifar10.train(st_loss, st_global_step)
 
@@ -89,7 +94,7 @@ def train():
     saver = tf.train.Saver(tf.all_variables())
 
     # Build the summary operation based on the TF collection of Summaries.
-    summary_op = tf.merge_all_summaries()
+#    summary_op = tf.merge_all_summaries()
 
     # Build an initialization operation to run below.
     init = tf.initialize_all_variables()
@@ -126,8 +131,9 @@ def train():
                              examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:
-        summary_str = sess.run(summary_op)
-        summary_writer.add_summary(summary_str, step)
+        pass
+#        summary_str = sess.run(summary_op)
+#        summary_writer.add_summary(summary_str, step)
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:

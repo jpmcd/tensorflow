@@ -274,7 +274,7 @@ def loss(logits, labels):
 
   # The total loss is defined as the cross entropy loss plus all of the weight
   # decay terms (L2 loss).
-  return tf.add_n(tf.get_collection('losses'), name='total_loss')
+  return tf.add_n(tf.get_collection('losses', tf.get_variable_scope().name), name='total_loss')
 
 
 def target_loss(logits, targets):
@@ -283,7 +283,7 @@ def target_loss(logits, targets):
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
   tf.add_to_collection('losses', cross_entropy_mean)
 
-  return tf.add_n(tf.get_collection('losses'), name='total_loss')
+  return tf.add_n(tf.get_collection('losses', tf.get_variable_scope().name), name='total_loss')
 
 
 def _add_loss_summaries(total_loss):
@@ -299,7 +299,7 @@ def _add_loss_summaries(total_loss):
   """
   # Compute the moving average of all individual losses and the total loss.
   loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
-  losses = tf.get_collection('losses')
+  losses = tf.get_collection('losses', tf.get_variable_scope().name)
   loss_averages_op = loss_averages.apply(losses + [total_loss])
 
   # Attach a scalar summary to all individual losses and the total loss; do the
@@ -336,7 +336,8 @@ def train(total_loss, global_step):
                                   decay_steps,
                                   LEARNING_RATE_DECAY_FACTOR,
                                   staircase=True)
-  tf.scalar_summary('learning_rate', lr)
+  scope_name = tf.get_variable_scope().name
+  tf.scalar_summary(scope_name+'/learning_rate', lr)
 
   # Generate moving averages of all losses and associated summaries.
   loss_averages_op = _add_loss_summaries(total_loss)
