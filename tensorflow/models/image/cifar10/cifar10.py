@@ -75,7 +75,7 @@ TOWER_NAME = 'tower'
 
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 
-
+#testcomment
 def _activation_summary(x):
   """Helper to create summaries for activations.
 
