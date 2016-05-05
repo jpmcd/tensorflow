@@ -49,7 +49,7 @@ import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('train_dir', '/tmp/cifar10_train',
+tf.app.flags.DEFINE_string('train_dir', '/scratch/cifar10_train',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
@@ -63,7 +63,7 @@ def train():
   with tf.Graph().as_default():
     with tf.variable_scope('model') as m_scope:
       global_step = tf.Variable(0, trainable=False)
-    with tf.variable_scope('student') as st_scope:
+    with tf.variable_scope('student') as s_scope:
       st_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
@@ -74,27 +74,27 @@ def train():
     # inference model.
     with tf.variable_scope(m_scope):
       logits = cifar10.inference(images)
-    with tf.variable_scope(st_scope):
+    with tf.variable_scope(s_scope):
       st_logits = cifar10.inference(images)
 
     # Calculate loss.
     with tf.variable_scope(m_scope):
       loss = cifar10.loss(logits, labels)
-    with tf.variable_scope(st_scope):
+    with tf.variable_scope(s_scope):
       st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
     with tf.variable_scope(m_scope):
       train_op = cifar10.train(loss, global_step)
-    with tf.variable_scope(st_scope):
+    with tf.variable_scope(s_scope):
       st_train_op = cifar10.train(st_loss, st_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
 
     # Build the summary operation based on the TF collection of Summaries.
-#    summary_op = tf.merge_all_summaries()
+    summary_op = tf.merge_all_summaries()
 
     # Build an initialization operation to run below.
     init = tf.initialize_all_variables()
@@ -131,9 +131,8 @@ def train():
                              examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:
-        pass
-#        summary_str = sess.run(summary_op)
-#        summary_writer.add_summary(summary_str, step)
+        summary_str = sess.run(summary_op)
+        summary_writer.add_summary(summary_str, step)
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
