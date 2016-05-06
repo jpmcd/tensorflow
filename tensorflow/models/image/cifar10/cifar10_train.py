@@ -72,23 +72,23 @@ def train():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    with tf.variable_scope(m_scope):
-      logits = cifar10.inference(images)
-    with tf.variable_scope(s_scope):
-      st_logits = cifar10.inference(images)
+#    with tf.variable_scope(m_scope):
+    logits = cifar10.inference(images)
+#    with tf.variable_scope(s_scope):
+#      st_logits = cifar10.inference(images)
 
     # Calculate loss.
-    with tf.variable_scope(m_scope):
-      loss = cifar10.loss(logits, labels)
-    with tf.variable_scope(s_scope):
-      st_loss = cifar10.target_loss(st_logits, logits)
+#    with tf.variable_scope(m_scope):
+    loss = cifar10.loss(logits, labels)
+#    with tf.variable_scope(s_scope):
+#      st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
-    with tf.variable_scope(m_scope):
-      train_op = cifar10.train(loss, global_step)
-    with tf.variable_scope(s_scope):
-      st_train_op = cifar10.train(st_loss, st_global_step)
+#    with tf.variable_scope(m_scope):
+    train_op = cifar10.train(loss, global_step)
+#    with tf.variable_scope(s_scope):
+#      st_train_op = cifar10.train(st_loss, st_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
@@ -113,11 +113,12 @@ def train():
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
       _, loss_value = sess.run([train_op, loss])
-      _, st_loss_value = sess.run([st_train_op, st_loss])
+#      _, st_loss_value = sess.run([st_train_op, st_loss])
+      st_loss_value = 3.14159
       duration = time.time() - start_time
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
-      assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
+#      assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
 
       if step % 10 == 0:
         num_examples_per_step = FLAGS.batch_size

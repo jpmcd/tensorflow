@@ -343,8 +343,6 @@ def train(total_loss, global_step):
 
   # Compute gradients.
   var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name)
-  print("scope: %s"%scope_name)
-  print([var.name for var in var_list])
   with tf.control_dependencies([loss_averages_op]):
     opt = tf.train.GradientDescentOptimizer(lr)
     grads = opt.compute_gradients(total_loss, var_list=var_list)

@@ -51,7 +51,7 @@ tf.app.flags.DEFINE_string('eval_data', 'test',
                            """Either 'test' or 'train_eval'.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/scratch/cifar10_train',
                            """Directory where to read model checkpoints.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 2 * 5,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 10000,
                             """Number of examples to run.""")
@@ -96,6 +96,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
       while step < num_iter and not coord.should_stop():
         predictions = sess.run([top_k_op])
         true_count += np.sum(predictions)
+        print (step, 1*np.array(predictions))
         step += 1
 
       # Compute precision @ 1.
@@ -122,6 +123,7 @@ def evaluate():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
+#    with tf.variable_scope('model') as m_scope:
     logits = cifar10.inference(images)
 
     # Calculate predictions.
