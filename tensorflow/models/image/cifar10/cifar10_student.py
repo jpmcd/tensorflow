@@ -57,114 +57,82 @@ tf.app.flags.DEFINE_integer('max_steps', 1000000,
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
 
-IMAGE_SIZE = 24
+IMAGE_HEIGHT = 24
+IMAGE_WIDTH = 24
+IMAGE_DEPTH = 3
+NUM_CLASSES = 10
 
 
-def resize_image_with_crop_or_pad(images, target_height, target_width):
-  b, original_height, original_width, _ = images.shape
+class Dataset(object):
 
-  if target_width <= 0:
-    raise ValueError('target_width must be > 0.')
-  if target_height <= 0:
-    raise ValueError('target_height must be > 0.')
+  def __init__(self, images, labels):
+    assert images.shape[0] == labels.shape[0]
+    self.images = images
+    self.labels = labels
+    self.num_examples = self.images.shape[0]
+    self.index_in_epoch = 0
+    self.epochs_completed = 0
 
-  offset_crop_width = 0
-  if target_width < original_width:
-    offset_crop_width = (original_width - target_width) // 2
+  def next_batch(self, batch_size):
+    start = self.index_in_epoch
+    self.index_in_epoch += batch_size
 
-  offset_crop_height = 0
-  if target_height < original_height:
-    offset_crop_height = (original_height - target_height) // 2
+    if self.index_in_epoch > self.num_examples:
+      # Finished epoch
+      self.epochs_completed += 1
 
-  top = offset_crop_height
-  bot = offset_crop_height + target_height
-  lef = offset_crop_width
-  rig = offset_crop_width + target_width
+      # Shuffle the data
+      perm = numpy.arange(self.num_examples)
+      numpy.random.shuffle(perm)
+      self.images = self.images[perm]
+      self.labels = self.labels[perm]
 
-  return images[:,top:bot,lef:rig,...]
+      # Start next epoch
+      start = 0
+      self.index_in_epoch = batch_size
+      assert batch_size <= self.num_examples
 
+    end = self.index_in_epoch
 
-def per_image_whitening(images):
-  stddev = np.std(images, axis=(1,2,3), keepdims=True)
-  adj_std = np.maximum(stddev, 1./np.sqrt(np.prod(images.shape[1:])))
-  mean = np.mean(images, axis=(1,2,3), keepdims=True)
-
-  return (images - mean)/adj_std
-
-
-def preprocess():
-  target_height = IMAGE_SIZE
-  target_width = IMAGE_SIZE
-
-  concat = []
-
-  data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-py')
-  filenames = [os.path.join(data_dir, 'data_batch_%d' % i)
-                 for i in xrange(1, 6)]
-  for f in filenames:
-    if not tf.gfile.Exists(f):
-      raise ValueError('Failed to find file: ' + f)
-
-    with open(f, 'rb') as fo:
-      dict = np.load(fo)
-
-    raw_images = dict['data']
-
-    # Data is 10000x3072
-    # Reshape to [batch,depth,height,width] and transpose to [batch,height,width,depth]
-    raw_images = raw_images.reshape((10000,3,32,32)).transpose((0,2,3,1))
-
-    # Crop the central [height, width] of the image.
-    resized_images = resize_image_with_crop_or_pad(raw_images, target_height, target_width)
-
-    # Cast from uint8 to float32
-    float_images = resized_images.astype('float32')
-
-    # Subtract off the mean and divide by the variance of the pixels.
-    images = per_image_whitening(float_images)
-
-    # Append to numpy array
-    concat.append(images)
-
-  images_set = np.concatenate(concat, axis=0)
-  images_path = os.path.join(FLAGS.data_dir, 'img.npz')
-  np.savez_compressed(images_path, images_set=images_set)
+    return self.images[start:end], self.labels[start:end]
   
+
+def fill_feed_dict(data_set, images_pl, labels_pl):
+  images_feed, labels_feed = data_set.next_batch(FLAGS.batch_size)
+  feed_dict = {images_pl: images_feed, labels_pl: labels_feed}
+
+  return feed_dict
+
 
 def train():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-#    with tf.variable_scope('model') as m_scope:
-    global_step = tf.Variable(0, trainable=False)
-#    with tf.variable_scope('student') as s_scope:
-#      st_global_step = tf.Variable(0, trainable=False)
+    with tf.variable_scope('model') as m_scope:
+      global_step = tf.Variable(0, trainable=False)
+    with tf.variable_scope('student') as s_scope:
+      st_global_step = tf.Variable(0, trainable=False)
 
-    # Get images and labels for CIFAR-10.
-    with tf.device('/cpu:0'):
-      images, labels = cifar10.distorted_inputs()
+    data_path = os.path.join(FLAGS.data_dir, 'images.npy')
 
-    #images_pl = tf.placeholder(
-    #labels_pl
+    with data as open(data_path, 'r'):
+        image_set = np.load(data)
+        logit_set = np.load(data)
+
+    data_set = Dataset(image_set, logit_set)
+
+    images = tf.placeholder(tf.float32, shape=(FLAGS.batch_size, height, width, depth))
+    logits = tf.placeholder(tf.float32, shape=(batch_size, num_classes))
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-#    with tf.variable_scope(m_scope):
-    logits = cifar10.inference(images)
-#    with tf.variable_scope(s_scope):
-#      st_logits = cifar10.inference(images)
+    st_logits = cifar10.inference(images)
 
     # Calculate loss.
-#    with tf.variable_scope(m_scope):
-    loss = cifar10.loss(logits, labels)
-#    with tf.variable_scope(s_scope):
-#      st_loss = cifar10.target_loss(st_logits, logits)
+    st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
-#    with tf.variable_scope(m_scope):
-    train_op = cifar10.train(loss, global_step)
-#    with tf.variable_scope(s_scope):
-#      st_train_op = cifar10.train(st_loss, st_global_step)
+    st_train_op = cifar10.train(st_loss, st_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
@@ -181,28 +149,29 @@ def train():
     sess.run(init)
 
     # Start the queue runners.
-    tf.train.start_queue_runners(sess=sess)
+    #tf.train.start_queue_runners(sess=sess)
 
     summary_writer = tf.train.SummaryWriter(FLAGS.train_dir,
                                             graph_def=sess.graph_def)
 
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
-      _, loss_value = sess.run([train_op, loss])
-#      _, st_loss_value = sess.run([st_train_op, st_loss])
+      feed_dict = fill_feed_dict(data_set, images, logits)
+      _, st_loss_value = sess.run([st_train_op, st_loss], feed_dict=feed_dict)
       duration = time.time() - start_time
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
-#      assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
+      assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
 
       if step % 10 == 0:
         num_examples_per_step = FLAGS.batch_size
         examples_per_sec = num_examples_per_step / duration
         sec_per_batch = float(duration)
 
-        format_str = ('%s: step %d, loss = %.2f, (%.1f examples/sec; %.3f '
+        format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f (%.1f examples/sec; %.3f '
                       'sec/batch)')
         print (format_str % (datetime.now(), step, loss_value,
+                                st_loss_value,
                              examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:
@@ -213,16 +182,6 @@ def train():
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=step)
-        
-        #Compute logits for student model
-        print("Computing new logits")
-        images_path = os.path.join(FLAGS.data_dir, 'img.npz')
-        logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
-        with np.load(images_path) as data:
-          images_set = data['images_set']
-          logits_set = sess.run([logits], feed_dict={images: images_set})
-        np.savez_compressed(logits_path, logits_set=logits_set)
-        print("Finished computing new logits")
 
 
 def main(argv=None):  # pylint: disable=unused-argument
@@ -230,13 +189,6 @@ def main(argv=None):  # pylint: disable=unused-argument
   if tf.gfile.Exists(FLAGS.train_dir):
     tf.gfile.DeleteRecursively(FLAGS.train_dir)
   tf.gfile.MakeDirs(FLAGS.train_dir)
-
-  images_path = os.path.join(FLAGS.data_dir, 'img.npz')
-  if not os.path.exists(images_path):
-    print("Preprocessing image data")
-    preprocess()
-  with np.load(images_path) as data:
-    print("images_set shape:", data['images_set'].shape)
   train()
 
 

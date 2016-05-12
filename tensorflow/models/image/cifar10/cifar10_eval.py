@@ -41,7 +41,8 @@ import time
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.models.image.cifar10 import cifar10
+#from tensorflow.models.image.cifar10 import cifar10
+import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -81,6 +82,10 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
       print('No checkpoint file found')
       return
 
+    init_op = tf.initialize_variables(tf.get_collection(tf.GraphKeys.VARIABLES,
+                scope="input_producer/limit_epochs"))
+    sess.run(init_op)
+
     # Start the queue runners.
     coord = tf.train.Coordinator()
     try:
@@ -93,10 +98,10 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
       true_count = 0  # Counts the number of correct predictions.
       total_sample_count = num_iter * FLAGS.batch_size
       step = 0
-      while step < num_iter and not coord.should_stop():
+      while step < num_iter-1 and not coord.should_stop():
+        print (step, tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS)[1].queue.size().eval())
         predictions = sess.run([top_k_op])
         true_count += np.sum(predictions)
-        print (step, 1*np.array(predictions))
         step += 1
 
       # Compute precision @ 1.
@@ -110,6 +115,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
     except Exception as e:  # pylint: disable=broad-except
       coord.request_stop(e)
 
+    print ('after eval_once')
     coord.request_stop()
     coord.join(threads, stop_grace_period_secs=10)
 
@@ -133,6 +139,7 @@ def evaluate():
     variable_averages = tf.train.ExponentialMovingAverage(
         cifar10.MOVING_AVERAGE_DECAY)
     variables_to_restore = variable_averages.variables_to_restore()
+    variables_to_restore.pop("input_producer/limit_epochs/epochs", None)
     saver = tf.train.Saver(variables_to_restore)
 
     # Build the summary operation based on the TF collection of Summaries.

@@ -74,6 +74,7 @@ INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 TOWER_NAME = 'tower'
 
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
+PICKLE_URL = 'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
 
 def _activation_summary(x):
   """Helper to create summaries for activations.
@@ -222,9 +223,13 @@ def inference(images):
   with tf.variable_scope('local3') as scope:
     # Move everything into depth so we can perform a single matrix multiply.
     dim = 1
-    for d in pool2.get_shape()[1:].as_list():
-      dim *= d
-    reshape = tf.reshape(pool2, [FLAGS.batch_size, dim])
+#    for d in pool2.get_shape()[1:].as_list():
+#      dim *= d
+#    reshape = tf.reshape(pool2, [FLAGS.batch_size, dim])
+    dim_list = pool2.get_shape().as_list()
+    for d in dim_list[1:]:
+        dim *= d
+    reshape = tf.reshape(pool2, [-1, dim])
 
     weights = _variable_with_weight_decay('weights', shape=[dim, 384],
                                           stddev=0.04, wd=0.004)
@@ -383,6 +388,20 @@ def maybe_download_and_extract():
           float(count * block_size) / float(total_size) * 100.0))
       sys.stdout.flush()
     filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath,
+                                             reporthook=_progress)
+    print()
+    statinfo = os.stat(filepath)
+    print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+    tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+
+  filename = PICKLE_URL.split('/')[-1]
+  filepath = os.path.join(dest_directory, filename)
+  if not os.path.exists(filepath):
+    def _progress(count, block_size, total_size):
+      sys.stdout.write('\r>> Downloading %s %.1f%%' % (filename,
+          float(count * block_size) / float(total_size) * 100.0))
+      sys.stdout.flush()
+    filepath, _ = urllib.request.urlretrieve(PICKLE_URL, filepath,
                                              reporthook=_progress)
     print()
     statinfo = os.stat(filepath)
