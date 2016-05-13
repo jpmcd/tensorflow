@@ -107,21 +107,13 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
 def train():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-    with tf.variable_scope('model') as m_scope:
-      global_step = tf.Variable(0, trainable=False)
-    with tf.variable_scope('student') as s_scope:
-      st_global_step = tf.Variable(0, trainable=False)
+#    with tf.variable_scope('model') as m_scope:
+#      global_step = tf.Variable(0, trainable=False)
+#    with tf.variable_scope('student') as s_scope:
+    st_global_step = tf.Variable(0, trainable=False)
 
-    data_path = os.path.join(FLAGS.data_dir, 'images.npy')
-
-    with data as open(data_path, 'r'):
-        image_set = np.load(data)
-        logit_set = np.load(data)
-
-    data_set = Dataset(image_set, logit_set)
-
-    images = tf.placeholder(tf.float32, shape=(FLAGS.batch_size, height, width, depth))
-    logits = tf.placeholder(tf.float32, shape=(batch_size, num_classes))
+    images = tf.placeholder(tf.float32, shape=(None, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_DEPTH))
+    logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES))
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -154,13 +146,31 @@ def train():
     summary_writer = tf.train.SummaryWriter(FLAGS.train_dir,
                                             graph_def=sess.graph_def)
 
+    images_path = os.path.join(FLAGS.data_dir, 'img.npz')
+    logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
+
+    if not tf.gfile.Exists(images_path):
+      raise ValueError('Failed to find file: ' + images_path)
+    if not tf.gfile.Exists(logits_path):
+      raise ValueError('Failed to find file: ' + logits_path)
+
+    with np.load(images_path) as data:
+      images_set = data['images_set']
+      print('images_set shape ', images_set.shape)
+    with np.load(logits_path) as data:
+      logits_set = data['logits_set']
+#####################################
+      logits_set = np.squeeze(logits_set)
+      print('logits_set shape ', logits_set.shape)
+
+    data_set = Dataset(images_set, logits_set)
+
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
       feed_dict = fill_feed_dict(data_set, images, logits)
       _, st_loss_value = sess.run([st_train_op, st_loss], feed_dict=feed_dict)
       duration = time.time() - start_time
 
-      assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
       assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
 
       if step % 10 == 0:
@@ -168,10 +178,9 @@ def train():
         examples_per_sec = num_examples_per_step / duration
         sec_per_batch = float(duration)
 
-        format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f (%.1f examples/sec; %.3f '
+        format_str = ('%s: step %d, st_loss = %.2f (%.1f examples/sec; %.3f '
                       'sec/batch)')
-        print (format_str % (datetime.now(), step, loss_value,
-                                st_loss_value,
+        print (format_str % (datetime.now(), step, st_loss_value,
                              examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:
@@ -180,15 +189,12 @@ def train():
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
-        checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
+        checkpoint_path = os.path.join(FLAGS.train_dir, 'model_student.ckpt')
         saver.save(sess, checkpoint_path, global_step=step)
 
 
 def main(argv=None):  # pylint: disable=unused-argument
   cifar10.maybe_download_and_extract()
-  if tf.gfile.Exists(FLAGS.train_dir):
-    tf.gfile.DeleteRecursively(FLAGS.train_dir)
-  tf.gfile.MakeDirs(FLAGS.train_dir)
   train()
 
 

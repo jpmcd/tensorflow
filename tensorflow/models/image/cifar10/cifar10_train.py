@@ -220,8 +220,8 @@ def train():
         logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
         with np.load(images_path) as data:
           images_set = data['images_set']
-          logits_set = sess.run([logits], feed_dict={images: images_set})
-        np.savez_compressed(logits_path, logits_set=logits_set)
+        logits_set = sess.run([logits], feed_dict={images: images_set})
+        np.savez_compressed(logits_path, logits_set=np.squeeze(logits_set))
         print("Finished computing new logits")
 
 
