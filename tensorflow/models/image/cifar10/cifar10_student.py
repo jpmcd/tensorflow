@@ -156,12 +156,12 @@ def train():
 
     with np.load(images_path) as data:
       images_set = data['images_set']
-      print('images_set shape ', images_set.shape)
+      print('images_set shape type ', images_set.shape, images_set.dtype)
     with np.load(logits_path) as data:
       logits_set = data['logits_set']
 #####################################
       logits_set = np.squeeze(logits_set)
-      print('logits_set shape ', logits_set.shape)
+      print('logits_set shape type ', logits_set.shape, logits_set.dtype)
 
     data_set = Dataset(images_set, logits_set)
 
@@ -184,7 +184,7 @@ def train():
                              examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:
-        summary_str = sess.run(summary_op)
+        summary_str = sess.run(summary_op, feed_dict=feed_dict)
         summary_writer.add_summary(summary_str, step)
 
       # Save the model checkpoint periodically.
