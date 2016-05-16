@@ -54,6 +54,8 @@ tf.app.flags.DEFINE_integer('batch_size', 128,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_string('data_dir', '/scratch/cifar10_data',
                            """Path to the CIFAR-10 data directory.""")
+tf.app.flags.DEFINE_float('temp', 1.,
+                          """Distillation temperature for training.""")
 
 # Global constants describing the CIFAR-10 data set.
 IMAGE_SIZE = cifar10_input.IMAGE_SIZE
@@ -252,6 +254,7 @@ def inference(images):
     biases = _variable_on_cpu('biases', [NUM_CLASSES],
                               tf.constant_initializer(0.0))
     softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
+    softmax_linear_temp = tf. 
     _activation_summary(softmax_linear)
 
   return softmax_linear
