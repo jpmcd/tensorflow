@@ -82,8 +82,8 @@ class Dataset(object):
       self.epochs_completed += 1
 
       # Shuffle the data
-      perm = numpy.arange(self.num_examples)
-      numpy.random.shuffle(perm)
+      perm = np.arange(self.num_examples)
+      np.random.shuffle(perm)
       self.images = self.images[perm]
       self.labels = self.labels[perm]
 

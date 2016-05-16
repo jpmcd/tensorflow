@@ -52,7 +52,7 @@ tf.app.flags.DEFINE_string('eval_data', 'test',
                            """Either 'test' or 'train_eval'.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/scratch/cifar10_train',
                            """Directory where to read model checkpoints.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 2 * 5,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 10000,
                             """Number of examples to run.""")
@@ -78,6 +78,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
       #   /my-favorite-path/cifar10_train/model.ckpt-0,
       # extract global_step from it.
       global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+      print('global step: %s' % global_step)
     else:
       print('No checkpoint file found')
       return
@@ -99,7 +100,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
       total_sample_count = num_iter * FLAGS.batch_size
       step = 0
       while step < num_iter-1 and not coord.should_stop():
-        print (step, tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS)[1].queue.size().eval())
+#        print (step, tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS)[1].queue.size().eval())
         predictions = sess.run([top_k_op])
         true_count += np.sum(predictions)
         step += 1
@@ -115,7 +116,6 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
     except Exception as e:  # pylint: disable=broad-except
       coord.request_stop(e)
 
-    print ('after eval_once')
     coord.request_stop()
     coord.join(threads, stop_grace_period_secs=10)
 

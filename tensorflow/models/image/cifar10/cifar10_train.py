@@ -214,7 +214,7 @@ def train():
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=step)
         
-        #Compute logits for student model
+        # Compute logits for student model
         print("Computing new logits")
         images_path = os.path.join(FLAGS.data_dir, 'img.npz')
         logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
@@ -235,8 +235,8 @@ def main(argv=None):  # pylint: disable=unused-argument
   if not os.path.exists(images_path):
     print("Preprocessing image data")
     preprocess()
-  with np.load(images_path) as data:
-    print("images_set shape:", data['images_set'].shape)
+#  with np.load(images_path) as data:
+#    print("images_set shape:", data['images_set'].shape)
   train()
 
 
