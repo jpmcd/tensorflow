@@ -107,17 +107,18 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
 def train():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-#    with tf.variable_scope('model') as m_scope:
-#      global_step = tf.Variable(0, trainable=False)
 #    with tf.variable_scope('student') as s_scope:
     st_global_step = tf.Variable(0, trainable=False)
 
-    images = tf.placeholder(tf.float32, shape=(None, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_DEPTH))
+    images = tf.placeholder(tf.float32, shape=(None, IMAGE_HEIGHT,
+                            IMAGE_WIDTH, IMAGE_DEPTH))
     logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES))
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    st_logits = cifar10.inference(images)
+    st_logits_unnorm = cifar10.inference(images)
+    st_logits = tf.sub(st_logits_unnorm, tf.reduce_mean(st_logits_unnorm,
+                       1, keep_dims=True))
 
     # Calculate loss.
     st_loss = cifar10.target_loss(st_logits, logits)
@@ -156,16 +157,17 @@ def train():
 
     with np.load(images_path) as data:
       images_set = data['images_set']
-      print('images_set shape type ', images_set.shape, images_set.dtype)
+      print ('images_set shape type ', images_set.shape, images_set.dtype)
     with np.load(logits_path) as data:
       logits_set = data['logits_set']
-#####################################
-      logits_set = np.squeeze(logits_set)
-      print('logits_set shape type ', logits_set.shape, logits_set.dtype)
+      # Normalize logits by mean
+      logits_set = logits_set - np.mean(logits_set, axis=1, keepdims=True)
+      print ('logits_set shape type ', logits_set.shape, logits_set.dtype)
 
     data_set = Dataset(images_set, logits_set)
 
     for step in xrange(FLAGS.max_steps):
+      print (step)
       start_time = time.time()
       feed_dict = fill_feed_dict(data_set, images, logits)
       _, st_loss_value = sess.run([st_train_op, st_loss], feed_dict=feed_dict)
@@ -190,7 +192,8 @@ def train():
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model_student.ckpt')
-        saver.save(sess, checkpoint_path, global_step=step)
+        saver.save(sess, checkpoint_path, global_step=step,
+                   latest_filename='checkpoint_student')
 
 
 def main(argv=None):  # pylint: disable=unused-argument

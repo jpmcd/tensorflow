@@ -39,6 +39,7 @@ from __future__ import print_function
 from datetime import datetime
 import os.path
 import time
+import sys
 
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
@@ -136,35 +137,24 @@ def train():
   with tf.Graph().as_default():
 #    with tf.variable_scope('model') as m_scope:
     global_step = tf.Variable(0, trainable=False)
-#    with tf.variable_scope('student') as s_scope:
-#      st_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
       images, labels = cifar10.distorted_inputs()
 
-    #images_pl = tf.placeholder(
-    #labels_pl
-
     # Build a Graph that computes the logits predictions from the
     # inference model.
 #    with tf.variable_scope(m_scope):
     logits = cifar10.inference(images)
-#    with tf.variable_scope(s_scope):
-#      st_logits = cifar10.inference(images)
 
     # Calculate loss.
 #    with tf.variable_scope(m_scope):
     loss = cifar10.loss(logits, labels)
-#    with tf.variable_scope(s_scope):
-#      st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
 #    with tf.variable_scope(m_scope):
     train_op = cifar10.train(loss, global_step)
-#    with tf.variable_scope(s_scope):
-#      st_train_op = cifar10.train(st_loss, st_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
@@ -214,15 +204,27 @@ def train():
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=step)
         
-        # Compute logits for student model
+        # Update logits for student model
         print("Computing new logits")
         images_path = os.path.join(FLAGS.data_dir, 'img.npz')
         logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
         with np.load(images_path) as data:
           images_set = data['images_set']
-        logits_set = sess.run([logits], feed_dict={images: images_set})
-        np.savez_compressed(logits_path, logits_set=np.squeeze(logits_set))
-        print("Finished computing new logits")
+        #logits_set = sess.run(logits,feed_dict={images:images_set})
+###################################
+        batch_size = 500
+        NUM_BATCHES = int(len(images_set)/batch_size)
+        concat = []
+        for i in range(NUM_BATCHES):
+          print("\r%d/%d"%(i, NUM_BATCHES), end="")
+          sys.stdout.flush()
+          logits_set = sess.run(logits,
+            feed_dict={images:images_set[i*batch_size:(i+1)*batch_size]})
+          concat.append(logits_set)
+        logits_set = np.concatenate(concat, axis=0)
+        print(logits_set.shape)
+        np.savez_compressed(logits_path, logits_set=logits_set)
+        print("\nFinished computing new logits")
 
 
 def main(argv=None):  # pylint: disable=unused-argument
@@ -235,8 +237,6 @@ def main(argv=None):  # pylint: disable=unused-argument
   if not os.path.exists(images_path):
     print("Preprocessing image data")
     preprocess()
-#  with np.load(images_path) as data:
-#    print("images_set shape:", data['images_set'].shape)
   train()
 
 

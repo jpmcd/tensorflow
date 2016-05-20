@@ -52,12 +52,14 @@ tf.app.flags.DEFINE_string('eval_data', 'test',
                            """Either 'test' or 'train_eval'.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', '/scratch/cifar10_train',
                            """Directory where to read model checkpoints.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 1,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 10000,
                             """Number of examples to run.""")
 tf.app.flags.DEFINE_boolean('run_once', False,
-                         """Whether to run eval only once.""")
+                            """Whether to run eval only once.""")
+tf.app.flags.DEFINE_boolean('student', False,
+                            """Evaluate with student model.""")
 
 
 def eval_once(saver, summary_writer, top_k_op, summary_op):
@@ -70,15 +72,21 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
     summary_op: Summary op.
   """
   with tf.Session() as sess:
-    ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    if FLAGS.student:
+      latest_filename = 'checkpoint_student'
+    else:
+      latest_filename = None
+    ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir,
+             latest_filename=latest_filename)
     if ckpt and ckpt.model_checkpoint_path:
       # Restores from checkpoint
       saver.restore(sess, ckpt.model_checkpoint_path)
+#      saver.restore(sess, '/scratch/cifar10_train/model.ckpt-14000')
       # Assuming model_checkpoint_path looks something like:
       #   /my-favorite-path/cifar10_train/model.ckpt-0,
       # extract global_step from it.
       global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
-      print('global step: %s' % global_step)
+      print ("global_step =", global_step, ckpt.model_checkpoint_path)
     else:
       print('No checkpoint file found')
       return
