@@ -47,6 +47,7 @@ import tensorflow as tf
 #from tensorflow.models.image.cifar10 import cifar10
 import cifar10
 
+
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('train_dir', '/scratch/cifar10_train',
@@ -98,7 +99,13 @@ class Dataset(object):
   
 
 def fill_feed_dict(data_set, images_pl, labels_pl):
-  images_feed, labels_feed = data_set.next_batch(FLAGS.batch_size)
+  images_feed, logits = data_set.next_batch(FLAGS.batch_size)
+
+  # Sample teacher prediction using multinomial on
+  # softmax of logits by Gumbel trick
+  labels_feed = np.argmax(logits -
+    np.log(-np.log(np.random.uniform(size=logits.shape))), axis=1)
+
   feed_dict = {images_pl: images_feed, labels_pl: labels_feed}
 
   return feed_dict
@@ -112,16 +119,19 @@ def train():
 
     images = tf.placeholder(tf.float32, shape=(None, IMAGE_HEIGHT,
                             IMAGE_WIDTH, IMAGE_DEPTH))
-    logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES))
+    targets = tf.placeholder(tf.int64, shape=(None))
+    #logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES)) 
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    st_logits_unnorm = cifar10.inference(images)
-    st_logits = tf.sub(st_logits_unnorm, tf.reduce_mean(st_logits_unnorm,
-                       1, keep_dims=True))
+    st_logits = cifar10.inference(images)
+
+    #st_logits = tf.sub(st_logits_unnorm, tf.reduce_mean(st_logits_unnorm,
+    #                   1, keep_dims=True))
 
     # Calculate loss.
-    st_loss = cifar10.target_loss(st_logits, logits)
+    st_loss = cifar10.loss(st_logits, targets)
+    #st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
@@ -167,9 +177,9 @@ def train():
     data_set = Dataset(images_set, logits_set)
 
     for step in xrange(FLAGS.max_steps):
-      print (step)
+      #print (step)
       start_time = time.time()
-      feed_dict = fill_feed_dict(data_set, images, logits)
+      feed_dict = fill_feed_dict(data_set, images, targets)
       _, st_loss_value = sess.run([st_train_op, st_loss], feed_dict=feed_dict)
       duration = time.time() - start_time
 
