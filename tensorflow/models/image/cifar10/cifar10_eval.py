@@ -137,15 +137,15 @@ def evaluate():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-#    with tf.variable_scope('model') as m_scope:
-    logits = cifar10.inference(images)
+    with tf.variable_scope('model') as m_scope:
+      logits = cifar10.inference(images)
 
     # Calculate predictions.
     top_k_op = tf.nn.in_top_k(logits, labels, 1)
 
     # Restore the moving average version of the learned variables for eval.
     variable_averages = tf.train.ExponentialMovingAverage(
-        cifar10.MOVING_AVERAGE_DECAY)
+                          cifar10.MOVING_AVERAGE_DECAY)
     variables_to_restore = variable_averages.variables_to_restore()
     variables_to_restore.pop("input_producer/limit_epochs/epochs", None)
     saver = tf.train.Saver(variables_to_restore)

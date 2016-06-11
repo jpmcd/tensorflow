@@ -245,7 +245,7 @@ def train_simul():
     sess.run(init)
 
     # Start the queue runners.
-    #tf.train.start_queue_runners(sess=sess)
+    tf.train.start_queue_runners(sess=sess)
 
     images_path = os.path.join(FLAGS.data_dir, 'img.npz')
     logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
@@ -270,7 +270,8 @@ def train_simul():
       #print (step)
       start_time = time.time()
       feed_dict = fill_feed_dict(data_set, images, targets)
-      _, st_loss_value = sess.run([st_train_op, st_loss], feed_dict=feed_dict)
+      _, loss_value, __, st_loss_value = sess.run([train_op,
+        loss, st_train_op, st_loss])
       duration = time.time() - start_time
 
       assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
@@ -280,9 +281,9 @@ def train_simul():
         examples_per_sec = num_examples_per_step / duration
         sec_per_batch = float(duration)
 
-        format_str = ('%s: step %d, st_loss = %.2f (%.1f examples/sec; %.3f '
-                      'sec/batch)')
-        print (format_str % (datetime.now(), step, st_loss_value,
+        format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f
+                      (%.1f examples/sec; %.3f sec/batch)')
+        print (format_str % (datetime.now(), step, loss_value, st_loss_value,
                              examples_per_sec, sec_per_batch))
 
       # Save the model checkpoint periodically.
