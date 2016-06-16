@@ -364,7 +364,7 @@ def multinomial(logits):
     Labels tensor of type int.
   """
   targets = tf.argmax(logits -
-    tf.log(-tf.log(tf.random_uniform(logits.get_shape(), maxval=1))), 1)
+    tf.log(-tf.log(tf.random_uniform(tf.shape(logits), maxval=1))), 1)
 
   return targets
 

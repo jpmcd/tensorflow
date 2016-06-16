@@ -99,12 +99,13 @@ class Dataset(object):
   
 
 def fill_feed_dict(data_set, images_pl, labels_pl):
-  images_feed, logits = data_set.next_batch(FLAGS.batch_size)
+  images_feed, labels_feed = data_set.next_batch(FLAGS.batch_size)
+#  images_feed, logits = data_set.next_batch(FLAGS.batch_size)
 
   # Sample teacher prediction using multinomial on
   # softmax of logits by Gumbel trick
-  labels_feed = np.argmax(logits -
-    np.log(-np.log(np.random.uniform(size=logits.shape))), axis=1)
+#  labels_feed = np.argmax(logits -
+#    np.log(-np.log(np.random.uniform(size=logits.shape))), axis=1)
 
   feed_dict = {images_pl: images_feed, labels_pl: labels_feed}
 
@@ -118,9 +119,7 @@ def train():
 
     images = tf.placeholder(tf.float32, shape=(None, IMAGE_HEIGHT,
                             IMAGE_WIDTH, IMAGE_DEPTH))
-    #targets = tf.placeholder(tf.int64, shape=(None))
     logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES)) 
-
     targets = cifar10.multinomial(logits)
 
     # Build a Graph that computes the logits predictions from the
@@ -129,7 +128,6 @@ def train():
 
     # Calculate loss.
     st_loss = cifar10.loss(st_logits, targets)
-    #st_loss = cifar10.target_loss(st_logits, logits)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
@@ -160,14 +158,15 @@ def train():
     with np.load(logits_path) as data:
       logits_set = data['logits_set']
       # Normalize logits by mean
-      logits_set = logits_set - np.mean(logits_set, axis=1, keepdims=True)
+#      logits_set = logits_set - np.mean(logits_set, axis=1, keepdims=True)
       print ('logits_set shape type ', logits_set.shape, logits_set.dtype)
 
     data_set = Dataset(images_set, logits_set)
 
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
-      feed_dict = fill_feed_dict(data_set, images, targets)
+#      feed_dict = fill_feed_dict(data_set, images, targets)
+      feed_dict = fill_feed_dict(data_set, images, logits)
       _, st_loss_value = sess.run([st_train_op, st_loss], feed_dict=feed_dict)
       duration = time.time() - start_time
 
@@ -265,8 +264,8 @@ def train_simult():
 
 def main(argv=None):  # pylint: disable=unused-argument
   cifar10.maybe_download_and_extract()
-  #train()
-  train_simult()
+  train()
+#  train_simult()
 
 
 if __name__ == '__main__':
