@@ -216,7 +216,8 @@ def inputs(eval_data, data_dir, batch_size):
 
   # Create a queue that produces the filenames to read.
   filename_queue = tf.train.string_input_producer(filenames)
-#  filename_queue = tf.train.string_input_producer(filenames, num_epochs=1)
+  # To limit to one epoch uncomment following line.
+  #filename_queue = tf.train.string_input_producer(filenames, num_epochs=1)
 
   # Read examples from files in the filename queue.
   read_input = read_cifar10(filename_queue)

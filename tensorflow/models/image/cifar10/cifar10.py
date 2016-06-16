@@ -364,7 +364,7 @@ def multinomial(logits):
     Labels tensor of type int.
   """
   targets = tf.argmax(logits -
-    tf.log(-tf.log(tf.random_uniform(logits.shape, maxval=1))), 1)
+    tf.log(-tf.log(tf.random_uniform(logits.get_shape(), maxval=1))), 1)
 
   return targets
 
@@ -393,15 +393,6 @@ def loss(logits, labels):
   return tf.add_n(tf.get_collection('losses', tf.get_variable_scope().name), name='total_loss')
 
 
-def target_loss(logits, targets):
-  cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-      logits, targets, name='cross_entropy_per_example')
-  cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
-  tf.add_to_collection('losses', cross_entropy_mean)
-
-  return tf.add_n(tf.get_collection('losses', tf.get_variable_scope().name), name='total_loss')
-
-
 def _add_loss_summaries(total_loss):
   """Add summaries for losses in CIFAR-10 model.
 
@@ -415,6 +406,7 @@ def _add_loss_summaries(total_loss):
   """
   # Compute the moving average of all individual losses and the total loss.
   loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+#  losses = tf.get_collection('losses', tf.get_variable_scope().name)
   losses = tf.get_collection('losses', tf.get_variable_scope().name)
   loss_averages_op = loss_averages.apply(losses + [total_loss])
 
@@ -453,13 +445,13 @@ def train(total_loss, global_step):
                                   LEARNING_RATE_DECAY_FACTOR,
                                   staircase=True)
   scope_name = tf.get_variable_scope().name
-  tf.scalar_summary(scope_name+'/learning_rate', lr)
+  tf.scalar_summary('learning_rate', lr)
 
   # Generate moving averages of all losses and associated summaries.
   loss_averages_op = _add_loss_summaries(total_loss)
 
-  # Compute gradients.
-  var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name)
+  # Compute gradients of variables in scope.
+  var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
   with tf.control_dependencies([loss_averages_op]):
     opt = tf.train.GradientDescentOptimizer(lr)
     loss_w_temp = tf.mul(tf.constant(FLAGS.temp), total_loss)
@@ -477,10 +469,10 @@ def train(total_loss, global_step):
     if grad:
       tf.histogram_summary(var.op.name + '/gradients', grad)
 
-  # Track the moving averages of all trainable variables.
+  # Track the moving averages of all trainable variables in scope.
   variable_averages = tf.train.ExponentialMovingAverage(
       MOVING_AVERAGE_DECAY, global_step)
-  variables_averages_op = variable_averages.apply(tf.trainable_variables())
+  variables_averages_op = variable_averages.apply(var_list)
 
   with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
     train_op = tf.no_op(name='train')

@@ -81,12 +81,12 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
     if ckpt and ckpt.model_checkpoint_path:
       # Restores from checkpoint
       saver.restore(sess, ckpt.model_checkpoint_path)
-#      saver.restore(sess, '/scratch/cifar10_train/model.ckpt-14000')
+
       # Assuming model_checkpoint_path looks something like:
       #   /my-favorite-path/cifar10_train/model.ckpt-0,
       # extract global_step from it.
       global_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
-      print ("global_step =", global_step, ckpt.model_checkpoint_path)
+      print ("global_step =", global_step)
     else:
       print('No checkpoint file found')
       return
@@ -108,19 +108,18 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
       total_sample_count = num_iter * FLAGS.batch_size
       step = 0
       while step < num_iter-1 and not coord.should_stop():
-#        print (step, tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS)[1].queue.size().eval())
         predictions = sess.run([top_k_op])
         true_count += np.sum(predictions)
         step += 1
 
       # Compute precision @ 1.
       precision = true_count / total_sample_count
-      print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
+      print('%s: precision @ 1 = %.4f' % (datetime.now(), precision))
 
-      summary = tf.Summary()
-      summary.ParseFromString(sess.run(summary_op))
-      summary.value.add(tag='Precision @ 1', simple_value=precision)
-      summary_writer.add_summary(summary, global_step)
+#      summary = tf.Summary()
+#      summary.ParseFromString(sess.run(summary_op))
+#      summary.value.add(tag='Precision @ 1', simple_value=precision)
+#      summary_writer.add_summary(summary, global_step)
     except Exception as e:  # pylint: disable=broad-except
       coord.request_stop(e)
 
@@ -140,8 +139,14 @@ def evaluate():
     with tf.variable_scope('model') as m_scope:
       logits = cifar10.inference(images)
 
-    # Calculate predictions.
-    top_k_op = tf.nn.in_top_k(logits, labels, 1)
+      # Calculate predictions.
+      top_k_op = tf.nn.in_top_k(logits, labels, 1)
+
+    if FLAGS.student:
+      with tf.variable_scope('student') as s_scope:
+        st_logits = cifar10.inference(images)
+
+        st_top_k_op = tf.nn.in_top_k(st_logits, labels, 1)
 
     # Restore the moving average version of the learned variables for eval.
     variable_averages = tf.train.ExponentialMovingAverage(
@@ -158,7 +163,11 @@ def evaluate():
                                             graph_def=graph_def)
 
     while True:
+      print('MODEL:')
       eval_once(saver, summary_writer, top_k_op, summary_op)
+      if FLAGS.student:
+        print('STUDENT:')
+        eval_once(saver, summary_writer, st_top_k_op, summary_op)
       if FLAGS.run_once:
         break
       time.sleep(FLAGS.eval_interval_secs)

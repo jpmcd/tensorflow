@@ -114,20 +114,18 @@ def fill_feed_dict(data_set, images_pl, labels_pl):
 def train():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-#    with tf.variable_scope('student') as s_scope:
     st_global_step = tf.Variable(0, trainable=False)
 
     images = tf.placeholder(tf.float32, shape=(None, IMAGE_HEIGHT,
                             IMAGE_WIDTH, IMAGE_DEPTH))
-    targets = tf.placeholder(tf.int64, shape=(None))
-    #logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES)) 
+    #targets = tf.placeholder(tf.int64, shape=(None))
+    logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES)) 
+
+    targets = cifar10.multinomial(logits)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
     st_logits = cifar10.inference(images)
-
-    #st_logits = tf.sub(st_logits_unnorm, tf.reduce_mean(st_logits_unnorm,
-    #                   1, keep_dims=True))
 
     # Calculate loss.
     st_loss = cifar10.loss(st_logits, targets)
@@ -147,9 +145,6 @@ def train():
     sess = tf.Session(config=tf.ConfigProto(
         log_device_placement=FLAGS.log_device_placement))
     sess.run(init)
-
-    # Start the queue runners.
-    #tf.train.start_queue_runners(sess=sess)
 
     images_path = os.path.join(FLAGS.data_dir, 'img.npz')
     logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
@@ -171,7 +166,6 @@ def train():
     data_set = Dataset(images_set, logits_set)
 
     for step in xrange(FLAGS.max_steps):
-      #print (step)
       start_time = time.time()
       feed_dict = fill_feed_dict(data_set, images, targets)
       _, st_loss_value = sess.run([st_train_op, st_loss], feed_dict=feed_dict)
@@ -196,7 +190,7 @@ def train():
                    latest_filename='checkpoint_student')
 
 
-def train_simul():
+def train_simult():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
     with tf.variable_scope('model') as m_scope:
@@ -217,10 +211,6 @@ def train_simul():
       # Calculate loss.
       loss = cifar10.loss(logits, labels)
 
-      # Build a graph that trains the model with one batch of examples
-      # and updates the model parameters.
-      train_op = cifar10.train(loss, global_step)
-
     with tf.variable_scope(s_scope):
       # Student graph that computes the logits predictions from the
       # inference model.
@@ -229,9 +219,10 @@ def train_simul():
       # Calculate loss according to multinomial sampled labels
       st_loss = cifar10.loss(st_logits, targets)
 
-      # Build a Graph that trains the model with one batch of examples
-      # and updates the model parameters.
-      st_train_op = cifar10.train(st_loss, st_global_step)
+    # Build a graph that trains the model with one batch of examples
+    # and updates the model parameters.
+    train_op = cifar10.train(loss, global_step)
+    st_train_op = cifar10.train(st_loss, st_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
@@ -247,29 +238,8 @@ def train_simul():
     # Start the queue runners.
     tf.train.start_queue_runners(sess=sess)
 
-    images_path = os.path.join(FLAGS.data_dir, 'img.npz')
-    logits_path = os.path.join(FLAGS.train_dir, 'log.npz')
-
-    if not tf.gfile.Exists(images_path):
-      raise ValueError('Failed to find file: ' + images_path)
-    if not tf.gfile.Exists(logits_path):
-      raise ValueError('Failed to find file: ' + logits_path)
-
-    with np.load(images_path) as data:
-      images_set = data['images_set']
-      print ('images_set shape type ', images_set.shape, images_set.dtype)
-    with np.load(logits_path) as data:
-      logits_set = data['logits_set']
-      # Normalize logits by mean
-      logits_set = logits_set - np.mean(logits_set, axis=1, keepdims=True)
-      print ('logits_set shape type ', logits_set.shape, logits_set.dtype)
-
-    data_set = Dataset(images_set, logits_set)
-
     for step in xrange(FLAGS.max_steps):
-      #print (step)
       start_time = time.time()
-      feed_dict = fill_feed_dict(data_set, images, targets)
       _, loss_value, __, st_loss_value = sess.run([train_op,
         loss, st_train_op, st_loss])
       duration = time.time() - start_time
@@ -281,8 +251,8 @@ def train_simul():
         examples_per_sec = num_examples_per_step / duration
         sec_per_batch = float(duration)
 
-        format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f
-                      (%.1f examples/sec; %.3f sec/batch)')
+        format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f, '
+                      '(%.1f examples/sec; %.3f sec/batch)')
         print (format_str % (datetime.now(), step, loss_value, st_loss_value,
                              examples_per_sec, sec_per_batch))
 
@@ -295,7 +265,8 @@ def train_simul():
 
 def main(argv=None):  # pylint: disable=unused-argument
   cifar10.maybe_download_and_extract()
-  train()
+  #train()
+  train_simult()
 
 
 if __name__ == '__main__':
