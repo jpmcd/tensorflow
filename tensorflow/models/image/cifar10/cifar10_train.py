@@ -135,7 +135,6 @@ def preprocess():
 def train():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-#    with tf.variable_scope('model') as m_scope:
     global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
@@ -144,16 +143,14 @@ def train():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-#    with tf.variable_scope(m_scope):
-    logits = cifar10.inference(images)
+    with tf.variable_scope('model') as m_scope:
+      logits = cifar10.inference(images)
 
-    # Calculate loss.
-#    with tf.variable_scope(m_scope):
-    loss = cifar10.loss(logits, labels)
+      # Calculate loss.
+      loss = cifar10.loss(logits, labels)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
-#    with tf.variable_scope(m_scope):
     train_op = cifar10.train(loss, global_step)
 
     # Create a saver.

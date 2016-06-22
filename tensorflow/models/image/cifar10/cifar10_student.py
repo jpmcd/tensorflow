@@ -122,12 +122,13 @@ def train():
     logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES)) 
     targets = cifar10.multinomial(logits)
 
-    # Build a Graph that computes the logits predictions from the
-    # inference model.
-    st_logits = cifar10.inference(images)
+    with tf.variable_scope('student') as s_scope:
+      # Build a Graph that computes the logits predictions from the
+      # inference model.
+      st_logits = cifar10.inference(images)
 
-    # Calculate loss.
-    st_loss = cifar10.loss(st_logits, targets)
+      # Calculate loss.
+      st_loss = cifar10.loss(st_logits, targets)
 
     # Build a Graph that trains the model with one batch of examples and
     # updates the model parameters.
@@ -157,9 +158,6 @@ def train():
       print ('images_set shape type ', images_set.shape, images_set.dtype)
     with np.load(logits_path) as data:
       logits_set = data['logits_set']
-      # Normalize logits by mean
-#      logits_set = logits_set - np.mean(logits_set, axis=1, keepdims=True)
-      print ('logits_set shape type ', logits_set.shape, logits_set.dtype)
 
     data_set = Dataset(images_set, logits_set)
 
@@ -192,16 +190,14 @@ def train():
 def train_simult():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
-    with tf.variable_scope('model') as m_scope:
-      global_step = tf.Variable(0, trainable=False)
-    with tf.variable_scope('student') as s_scope:
-      st_global_step = tf.Variable(0, trainable=False)
+    global_step = tf.Variable(0, trainable=False)
+    st_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
       images, labels = cifar10.distorted_inputs()
 
-    with tf.variable_scope(m_scope):
+    with tf.variable_scope('model') as m_scope:
       # Build a Graph that computes the logits predictions from the
       # inference model.
       logits = cifar10.inference(images)
@@ -210,7 +206,7 @@ def train_simult():
       # Calculate loss.
       loss = cifar10.loss(logits, labels)
 
-    with tf.variable_scope(s_scope):
+    with tf.variable_scope('student') as s_scope:
       # Student graph that computes the logits predictions from the
       # inference model.
       st_logits = cifar10.inference(images)
@@ -264,8 +260,8 @@ def train_simult():
 
 def main(argv=None):  # pylint: disable=unused-argument
   cifar10.maybe_download_and_extract()
-  train()
-#  train_simult()
+#  train()
+  train_simult()
 
 
 if __name__ == '__main__':

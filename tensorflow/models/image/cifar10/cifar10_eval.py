@@ -60,6 +60,8 @@ tf.app.flags.DEFINE_boolean('run_once', False,
                             """Whether to run eval only once.""")
 tf.app.flags.DEFINE_boolean('student', False,
                             """Evaluate with student model.""")
+tf.app.flags.DEFINE_boolean('teacher', True,
+                            """Evaluate with teacher model.""")
 
 
 def eval_once(saver, summary_writer, top_k_op, summary_op):
@@ -136,16 +138,15 @@ def evaluate():
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    with tf.variable_scope('model') as m_scope:
-      logits = cifar10.inference(images)
+    if FLAGS.teacher:
+      with tf.variable_scope('model') as m_scope:
+        logits = cifar10.inference(images)
 
-      # Calculate predictions.
-      top_k_op = tf.nn.in_top_k(logits, labels, 1)
-
+        # Calculate predictions.
+        top_k_op = tf.nn.in_top_k(logits, labels, 1)
     if FLAGS.student:
       with tf.variable_scope('student') as s_scope:
         st_logits = cifar10.inference(images)
-
         st_top_k_op = tf.nn.in_top_k(st_logits, labels, 1)
 
     # Restore the moving average version of the learned variables for eval.
@@ -163,8 +164,9 @@ def evaluate():
                                             graph_def=graph_def)
 
     while True:
-      print('MODEL:')
-      eval_once(saver, summary_writer, top_k_op, summary_op)
+      if FLAGS.teacher:
+        print('MODEL:')
+        eval_once(saver, summary_writer, top_k_op, summary_op)
       if FLAGS.student:
         print('STUDENT:')
         eval_once(saver, summary_writer, st_top_k_op, summary_op)
