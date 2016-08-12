@@ -149,7 +149,7 @@ def evaluate():
         st_logits = cifar10.inference(images)
         st_top_k_op = tf.nn.in_top_k(st_logits, labels, 1)
       with tf.variable_scope('small') as small:
-        sm_logits = cifar10.inference(images)
+        sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
         sm_top_k_op = tf.nn.in_top_k(sm_logits, labels, 1)
 
     # Restore the moving average version of the learned variables for eval.

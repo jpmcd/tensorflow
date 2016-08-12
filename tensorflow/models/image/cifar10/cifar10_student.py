@@ -224,7 +224,7 @@ def train_simult():
     # and updates the model parameters.
     train_op = cifar10.train(loss, global_step)
     st_train_op = cifar10.train(st_loss, st_global_step)
-    sm_train_op = cifar10.train(sm_loss, sm_gloabl_step)
+    sm_train_op = cifar10.train(sm_loss, sm_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
