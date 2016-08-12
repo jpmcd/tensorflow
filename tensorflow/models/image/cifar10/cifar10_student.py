@@ -192,6 +192,7 @@ def train_simult():
   with tf.Graph().as_default():
     global_step = tf.Variable(0, trainable=False)
     st_global_step = tf.Variable(0, trainable=False)
+    sm_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
@@ -210,14 +211,20 @@ def train_simult():
       # Student graph that computes the logits predictions from the
       # inference model.
       st_logits = cifar10.inference(images)
+      st_targets = cifar10.multinomial(st_logits)
 
       # Calculate loss according to multinomial sampled labels
       st_loss = cifar10.loss(st_logits, targets)
+
+    with tf.variable_scope('small') as small:
+      sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
+      sm_loss = cifar10.loss(sm_logits, st_targets)
 
     # Build a graph that trains the model with one batch of examples
     # and updates the model parameters.
     train_op = cifar10.train(loss, global_step)
     st_train_op = cifar10.train(st_loss, st_global_step)
+    sm_train_op = cifar10.train(sm_loss, sm_gloabl_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
@@ -235,8 +242,8 @@ def train_simult():
 
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
-      _, loss_value, __, st_loss_value = sess.run([train_op,
-        loss, st_train_op, st_loss])
+      _, loss_value, __, st_loss_value, ___, sm_val = sess.run([train_op,
+        loss, st_train_op, st_loss, sm_train_op, sm_loss])
       duration = time.time() - start_time
 
       assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
@@ -247,9 +254,9 @@ def train_simult():
         sec_per_batch = float(duration)
 
         format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f, '
-                      '(%.1f examples/sec; %.3f sec/batch)')
+                      'sm_loss = %.2f, (%.1f examples/sec; %.3f sec/batch)')
         print (format_str % (datetime.now(), step, loss_value, st_loss_value,
-                             examples_per_sec, sec_per_batch))
+                             sm_val, examples_per_sec, sec_per_batch))
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
