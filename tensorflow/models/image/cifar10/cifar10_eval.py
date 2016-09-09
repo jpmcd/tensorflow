@@ -148,6 +148,9 @@ def evaluate():
       with tf.variable_scope('student') as s_scope:
         st_logits = cifar10.inference(images)
         st_top_k_op = tf.nn.in_top_k(st_logits, labels, 1)
+      with tf.variable_scope('med') as m_scope:
+        md_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
+        md_top_k_op = tf.nn.in_top_k(md_logits, labels, 1)
       with tf.variable_scope('small') as small:
         sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
         sm_top_k_op = tf.nn.in_top_k(sm_logits, labels, 1)
@@ -173,6 +176,8 @@ def evaluate():
       if FLAGS.student:
         print('STUDENT:')
         eval_once(saver, summary_writer, st_top_k_op, summary_op)
+        print('MEDIUM:')
+        eval_once(saver, summary_writer, md_top_k_op, summary_op)
         print('SMALL:')
         eval_once(saver, summary_writer, sm_top_k_op, summary_op)
       if FLAGS.run_once:
