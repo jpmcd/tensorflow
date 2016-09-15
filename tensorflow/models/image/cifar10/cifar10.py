@@ -437,7 +437,9 @@ def multinomial(logits):
   """Sample labels according to multinomial distribution on logits.
 
   Produce labels sampled according to multinomial distribution
-  from log probability input. This implements the 'Gumbel trick.'
+  from log probability input. This implements the 'Gumbel trick' found in
+  https://hips.seas.harvard.edu/blog/2013/04/06/the-gumbel-max-trick-for-discrete-distributions/
+  .
 
   Args:
     logits: Logits from inference().

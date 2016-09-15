@@ -199,6 +199,7 @@ def train_simult():
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
       images, labels = cifar10.distorted_inputs()
+      eval_images, eval_labels = cifar10.inputs(eval_data='test')
 
     with tf.variable_scope('model') as m_scope:
       # Build a Graph that computes the logits predictions from the
@@ -279,6 +280,9 @@ def train_simult():
                       'sm_loss = %.2f, (%.1f examples/sec; %.3f sec/batch)')
         print (format_str % (datetime.now(), step, loss_value, st_loss_value, md_val,
                              sm_val, examples_per_sec, sec_per_batch))
+
+      if step % 100 == 0:
+        pass
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
