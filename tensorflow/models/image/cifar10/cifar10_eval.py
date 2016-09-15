@@ -107,7 +107,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
 
       num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
       true_count = 0  # Counts the number of correct predictions.
-      total_sample_count = num_iter * FLAGS.batch_size
+      total_sample_count = (num_iter-1) * FLAGS.batch_size
       step = 0
       while step < num_iter-1 and not coord.should_stop():
         predictions = sess.run([top_k_op])

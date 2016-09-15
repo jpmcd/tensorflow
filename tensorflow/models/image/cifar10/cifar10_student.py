@@ -191,15 +191,15 @@ def train_simult():
   """Train CIFAR-10 for a number of steps."""
   with tf.Graph().as_default():
     global_step = tf.Variable(0, trainable=False)
-    st_global_step = tf.Variable(0, trainable=False)
+    lg_global_step = tf.Variable(0, trainable=False)
     md_global_step = tf.Variable(0, trainable=False)
     sm_global_step = tf.Variable(0, trainable=False)
-    mi_global_step = tf.Variable(0, trainable=False)
+    #mi_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
       images, labels = cifar10.distorted_inputs()
-      eval_images, eval_labels = cifar10.inputs(eval_data='test')
+      images_ev, labels_ev = cifar10.inputs(eval_data='test')
 
     with tf.variable_scope('model') as m_scope:
       # Build a Graph that computes the logits predictions from the
@@ -210,32 +210,45 @@ def train_simult():
       # Calculate loss.
       loss = cifar10.loss(logits, labels)
 
+      # Compute logits and calculate predictions for validation error
+      m_scope.reuse_variables()
+      logits_ev = cifar10.inference(images_ev)
+      top_k_op = tf.nn.in_top_k(logits_ev, labels_ev, 1)
+
     with tf.variable_scope('student') as s_scope:
       # Student graph that computes the logits predictions from the
       # inference model.
-      st_logits = cifar10.inference(images)
-      st_targets = cifar10.multinomial(st_logits)
+      lg_logits = cifar10.inference(images)
+      lg_targets = cifar10.multinomial(lg_logits)
 
       # Calculate loss according to multinomial sampled labels
-      st_loss = cifar10.loss(st_logits, targets)
+      lg_loss = cifar10.loss(lg_logits, targets)
+
+      s_scope.reuse_variables()
+      lg_logits_ev = cifar10.inference(images_ev)
+      lg_top_k_op = tf.nn.in_top_k(lg_logits_ev, labels_ev, 1)
 
     with tf.variable_scope('med') as m_scope:
       md_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
       md_targets = cifar10.multinomial(md_logits)
-      md_loss = cifar10.loss(md_logits, st_targets)
+      md_loss = cifar10.loss(md_logits, lg_targets)
+      m_scope.reuse_variables()
+      md_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
+      md_top_k_op = tf.nn.in_top_k(md_logits_ev, labels_ev, 1)
 
     with tf.variable_scope('small') as small:
       sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
       sm_loss = cifar10.loss(sm_logits, md_targets)
+      small.reuse_variables()
+      sm_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
+      sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
 
     #with tf.variable_scope('mini') as mini:
-    #  pass
-    #  #mi_logits = cifar10.inference_small(images)
 
     # Build a graph that trains the model with one batch of examples
     # and updates the model parameters.
     train_op = cifar10.train(loss, global_step)
-    st_train_op = cifar10.train(st_loss, st_global_step)
+    lg_train_op = cifar10.train(lg_loss, lg_global_step)
     md_train_op = cifar10.train(md_loss, md_global_step)
     sm_train_op = cifar10.train(sm_loss, sm_global_step)
 
@@ -256,33 +269,42 @@ def train_simult():
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
       if step < 5000:
-        _, loss_value, __, st_loss_value = sess.run([train_op,
-          loss, st_train_op, st_loss])
+        _, loss_value, __, lg_loss_value = sess.run([train_op,
+          loss, lg_train_op, lg_loss])
         sm_val = 10.0
         md_val = 10.0
       elif step < 7000:
-        _, loss_value, __, st_loss_value, ___, md_val = sess.run([train_op,
-          loss, st_train_op, st_loss, md_train_op, md_loss])
+        _, loss_value, __, lg_loss_value, ___, md_val = sess.run([train_op,
+          loss, lg_train_op, lg_loss, md_train_op, md_loss])
         sm_val = 10.0
       else:
-        _, loss_value, __, st_loss_value, ___, md_val, ____, sm_val = sess.run([train_op,
-          loss, st_train_op, st_loss, md_train_op, md_loss, sm_train_op, sm_loss])
+        _, loss_value, __, lg_loss_value, ___, md_val, ____, sm_val = sess.run([train_op,
+          loss, lg_train_op, lg_loss, md_train_op, md_loss, sm_train_op, sm_loss])
       duration = time.time() - start_time
 
-      assert not np.isnan(st_loss_value), 'Model diverged with loss = NaN'
+      assert not np.isnan(lg_loss_value), 'Model diverged with loss = NaN'
 
       if step % 10 == 0:
         num_examples_per_step = FLAGS.batch_size
         examples_per_sec = num_examples_per_step / duration
         sec_per_batch = float(duration)
 
-        format_str = ('%s: step %d, loss = %.2f, st_loss = %.2f, md_loss = %.2f, '
+        format_str = ('%s: step %d, loss = %.2f, lg_loss = %.2f, md_loss = %.2f, '
                       'sm_loss = %.2f, (%.1f examples/sec; %.3f sec/batch)')
-        print (format_str % (datetime.now(), step, loss_value, st_loss_value, md_val,
+        print (format_str % (datetime.now(), step, loss_value, lg_loss_value, md_val,
                              sm_val, examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:
-        pass
+        num_examples = 10000
+        num_iter = int(math.ceil(num_examples / FLAGS.batch_size))
+        total_sample_count = num_iter * FLAGS.batch_size
+        true_count = 0
+        eval_step = 0
+        while eval_step < num_iter-1:
+          predictions, pred_lg, pred_md, pred_sm = sess.run([top_k_op,
+            lg_top_k_op, md_top_k_op, sm_top_k_op])
+          true_count += np.sum(predictions)
+          eval_step += 1
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
