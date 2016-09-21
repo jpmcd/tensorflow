@@ -243,8 +243,6 @@ def train_simult():
       sm_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
       sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
 
-    #with tf.variable_scope('mini') as mini:
-
     # Build a graph that trains the model with one batch of examples
     # and updates the model parameters.
     train_op = cifar10.train(loss, global_step)
@@ -271,12 +269,12 @@ def train_simult():
       if step < 5000:
         _, loss_value, __, lg_loss_value = sess.run([train_op,
           loss, lg_train_op, lg_loss])
-        sm_val = 10.0
-        md_val = 10.0
+        sm_val = 0.0
+        md_val = 0.0
       elif step < 7000:
         _, loss_value, __, lg_loss_value, ___, md_val = sess.run([train_op,
           loss, lg_train_op, lg_loss, md_train_op, md_loss])
-        sm_val = 10.0
+        sm_val = 0.0
       else:
         _, loss_value, __, lg_loss_value, ___, md_val, ____, sm_val = sess.run([train_op,
           loss, lg_train_op, lg_loss, md_train_op, md_loss, sm_train_op, sm_loss])
@@ -296,15 +294,18 @@ def train_simult():
 
       if step % 100 == 0:
         num_examples = 10000
-        num_iter = int(math.ceil(num_examples / FLAGS.batch_size))
-        total_sample_count = num_iter * FLAGS.batch_size
-        true_count = 0
+        num_iter = int(np.ceil(num_examples / FLAGS.batch_size))
+        total_sample_count = (num_iter-1) * FLAGS.batch_size
+        true_count = [0]*4
         eval_step = 0
         while eval_step < num_iter-1:
-          predictions, pred_lg, pred_md, pred_sm = sess.run([top_k_op,
+          #predictions, pred_lg, pred_md, pred_sm = sess.run([top_k_op,
+          predictions = sess.run([top_k_op,
             lg_top_k_op, md_top_k_op, sm_top_k_op])
-          true_count += np.sum(predictions)
+          true_count += np.sum(predictions, axis=1)
           eval_step += 1
+
+        precision = true_count / total_sample_count 
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
