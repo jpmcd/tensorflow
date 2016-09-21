@@ -253,6 +253,9 @@ def train_simult():
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
 
+    # Build the summary operation based on the TF collection of Summaries.
+    summary_op = tf.merge_all_summaries()
+
     # Build an initialization operation to run below.
     init = tf.initialize_all_variables()
 
@@ -263,6 +266,8 @@ def train_simult():
 
     # Start the queue runners.
     tf.train.start_queue_runners(sess=sess)
+
+    summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
 
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
@@ -293,6 +298,8 @@ def train_simult():
                              sm_val, examples_per_sec, sec_per_batch))
 
       if step % 100 == 0:
+        summary_str = sess.run(summary_op)
+        summary_writer.add_summary(summary_str, step)
         num_examples = 10000
         num_iter = int(np.ceil(num_examples / FLAGS.batch_size))
         total_sample_count = (num_iter-1) * FLAGS.batch_size
