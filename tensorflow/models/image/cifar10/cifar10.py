@@ -490,7 +490,6 @@ def _add_loss_summaries(total_loss):
   """
   # Compute the moving average of all individual losses and the total loss.
   loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
-#  losses = tf.get_collection('losses', tf.get_variable_scope().name)
   losses = tf.get_collection('losses', tf.get_variable_scope().name)
   loss_averages_op = loss_averages.apply(losses + [total_loss])
 
@@ -529,7 +528,7 @@ def train(total_loss, global_step):
                                   LEARNING_RATE_DECAY_FACTOR,
                                   staircase=True)
   scope_name = tf.get_variable_scope().name
-  tf.scalar_summary('learning_rate', lr)
+  tf.scalar_summary(scope_name + '/learning_rate', lr)
 
   # Generate moving averages of all losses and associated summaries.
   loss_averages_op = _add_loss_summaries(total_loss)

@@ -198,10 +198,12 @@ def train_simult():
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
-      images, labels = cifar10.distorted_inputs()
-      images_ev, labels_ev = cifar10.inputs(eval_data='test')
+      with tf.variable_scope('train') as scope:
+        images, labels = cifar10.distorted_inputs()
+      with tf.variable_scope('eval') as scope:
+        images_ev, labels_ev = cifar10.inputs(eval_data='test')
 
-    with tf.variable_scope('model') as m_scope:
+    with tf.variable_scope('model') as scope:
       # Build a Graph that computes the logits predictions from the
       # inference model.
       logits = cifar10.inference(images)
@@ -211,11 +213,15 @@ def train_simult():
       loss = cifar10.loss(logits, labels)
 
       # Compute logits and calculate predictions for validation error
-      m_scope.reuse_variables()
+      scope.reuse_variables()
       logits_ev = cifar10.inference(images_ev)
       top_k_op = tf.nn.in_top_k(logits_ev, labels_ev, 1)
 
-    with tf.variable_scope('student') as s_scope:
+      # Build a graph that trains the model with one batch of examples
+      # and updates the model parameters.
+      train_op = cifar10.train(loss, global_step)
+
+    with tf.variable_scope('lrg') as scope:
       # Student graph that computes the logits predictions from the
       # inference model.
       lg_logits = cifar10.inference(images)
@@ -224,31 +230,27 @@ def train_simult():
       # Calculate loss according to multinomial sampled labels
       lg_loss = cifar10.loss(lg_logits, targets)
 
-      s_scope.reuse_variables()
+      scope.reuse_variables()
       lg_logits_ev = cifar10.inference(images_ev)
       lg_top_k_op = tf.nn.in_top_k(lg_logits_ev, labels_ev, 1)
+      lg_train_op = cifar10.train(lg_loss, lg_global_step)
 
-    with tf.variable_scope('med') as m_scope:
+    with tf.variable_scope('med') as scope:
       md_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
       md_targets = cifar10.multinomial(md_logits)
       md_loss = cifar10.loss(md_logits, lg_targets)
-      m_scope.reuse_variables()
+      scope.reuse_variables()
       md_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
       md_top_k_op = tf.nn.in_top_k(md_logits_ev, labels_ev, 1)
+      md_train_op = cifar10.train(md_loss, md_global_step)
 
-    with tf.variable_scope('small') as small:
+    with tf.variable_scope('sml') as scope:
       sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
       sm_loss = cifar10.loss(sm_logits, md_targets)
-      small.reuse_variables()
+      scope.reuse_variables()
       sm_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
       sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
-
-    # Build a graph that trains the model with one batch of examples
-    # and updates the model parameters.
-    train_op = cifar10.train(loss, global_step)
-    lg_train_op = cifar10.train(lg_loss, lg_global_step)
-    md_train_op = cifar10.train(md_loss, md_global_step)
-    sm_train_op = cifar10.train(sm_loss, sm_global_step)
+      sm_train_op = cifar10.train(sm_loss, sm_global_step)
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
