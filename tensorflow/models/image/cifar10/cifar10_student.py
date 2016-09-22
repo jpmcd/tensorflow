@@ -315,6 +315,7 @@ def train_simult():
           eval_step += 1
 
         precision = true_count / total_sample_count 
+        print(precision)
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
