@@ -271,6 +271,10 @@ def train_simult():
 
     summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
 
+    
+    accuracy = []
+    losses = []
+
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
       if step < 5000:
@@ -289,6 +293,8 @@ def train_simult():
 
       assert not np.isnan(lg_loss_value), 'Model diverged with loss = NaN'
 
+      losses.append(np.array([loss_value, lg_loss_value, md_val, sm_val]))
+
       if step % 10 == 0:
         num_examples_per_step = FLAGS.batch_size
         examples_per_sec = num_examples_per_step / duration
@@ -305,23 +311,32 @@ def train_simult():
         num_examples = 10000
         num_iter = int(np.ceil(num_examples / FLAGS.batch_size))
         total_sample_count = (num_iter-1) * FLAGS.batch_size
-        true_count = [0]*4
-        eval_step = 0
-        while eval_step < num_iter-1:
-          #predictions, pred_lg, pred_md, pred_sm = sess.run([top_k_op,
+        total_sample_count2 = 0
+        true_count = np.zeros(4)
+        #eval_step = 0
+        #while eval_step < num_iter-1:
+        for eval_step in xrange(num_iter-1):
           predictions = sess.run([top_k_op,
             lg_top_k_op, md_top_k_op, sm_top_k_op])
+          predictions = np.array(predictions)
           true_count += np.sum(predictions, axis=1)
-          eval_step += 1
+          total_sample_count2 += predictions.shape[1]
+          #eval_step += 1
 
         precision = true_count / total_sample_count 
-        print(precision)
+        print (precision, total_sample_count, total_sample_count2)
+        accuracy.append(precision)
 
       # Save the model checkpoint periodically.
       if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model_student.ckpt')
         saver.save(sess, checkpoint_path, global_step=step,
                    latest_filename='checkpoint_student')
+
+        eval_history = np.array(accuracy).T
+        loss_history = np.array(losses).T
+        np.save(os.path.join(FLAGS.train_dir, 'eval_history'), eval_history)
+        np.save(os.path.join(FLAGS.train_dir, 'loss_history'), loss_history)
 
 
 def main(argv=None):  # pylint: disable=unused-argument
