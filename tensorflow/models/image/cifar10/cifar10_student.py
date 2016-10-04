@@ -194,7 +194,8 @@ def train_simult():
     lg_global_step = tf.Variable(0, trainable=False)
     md_global_step = tf.Variable(0, trainable=False)
     sm_global_step = tf.Variable(0, trainable=False)
-    #mi_global_step = tf.Variable(0, trainable=False)
+    sms_global_step = tf.Variable(0, trainable=False)
+    mds_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
@@ -252,6 +253,23 @@ def train_simult():
       sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
       sm_train_op = cifar10.train(sm_loss, sm_global_step)
 
+    with tf.variable_scope('sml_star') as scope:
+      sms_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
+      sms_loss = cifar10.loss(sms_logits, labels)
+      scope.reuse_variables()
+      sms_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
+      sms_top_k_op = tf.nn.in_top_k(sms_logits_ev, labels_ev, 1)
+      sms_train_op = cifar10.train(sms_loss, sms_global_step)
+
+    with tf.variable_scope('med_star') as scope:
+      mds_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
+      mds_loss = cifar10.loss(mds_logits, labels)
+      scope.reuse_variables()
+      mds_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
+      mds_top_k_op = tf.nn.in_top_k(mds_logits_ev, labels_ev, 1)
+      mds_train_op = cifar10.train(mds_loss, mds_global_step)
+
+
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
 
@@ -275,20 +293,25 @@ def train_simult():
     accuracy = []
     losses = []
 
+    sm_val = 0.0
+    md_val = 0.0
+    sms_val = 0.0
+    mds_val = 0.0
     for step in xrange(FLAGS.max_steps):
       start_time = time.time()
       if step < 5000:
         _, loss_value, __, lg_loss_value = sess.run([train_op,
           loss, lg_train_op, lg_loss])
-        sm_val = 0.0
-        md_val = 0.0
       elif step < 7000:
-        _, loss_value, __, lg_loss_value, ___, md_val = sess.run([train_op,
-          loss, lg_train_op, lg_loss, md_train_op, md_loss])
-        sm_val = 0.0
+        (_, loss_value, __, lg_loss_value, ___, md_val,
+          ___s, mds_val) = sess.run([train_op,
+          loss, lg_train_op, lg_loss, md_train_op, md_loss,
+          mds_train_op, mds_loss])
       else:
-        _, loss_value, __, lg_loss_value, ___, md_val, ____, sm_val = sess.run([train_op,
-          loss, lg_train_op, lg_loss, md_train_op, md_loss, sm_train_op, sm_loss])
+        (_, loss_value, __, lg_loss_value, ___, md_val, ____, sm_val
+          ___s, mds_val, ____s, sms_val) = sess.run([train_op,
+          loss, lg_train_op, lg_loss, md_train_op, md_loss, sm_train_op, sm_loss,
+          mds_train_op, mds_loss, sms_train_op, sms_loss])
       duration = time.time() - start_time
 
       assert not np.isnan(lg_loss_value), 'Model diverged with loss = NaN'
