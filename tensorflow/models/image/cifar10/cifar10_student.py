@@ -194,8 +194,12 @@ def train_simult():
     lg_global_step = tf.Variable(0, trainable=False)
     md_global_step = tf.Variable(0, trainable=False)
     sm_global_step = tf.Variable(0, trainable=False)
-    sms_global_step = tf.Variable(0, trainable=False)
     mds_global_step = tf.Variable(0, trainable=False)
+    sms_global_step = tf.Variable(0, trainable=False)
+    md_l_global_step = tf.Variable(0, trainable=False)
+    sm_l_global_step = tf.Variable(0, trainable=False)
+    mds_l_global_step = tf.Variable(0, trainable=False)
+    sms_l_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
@@ -253,6 +257,16 @@ def train_simult():
       sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
       sm_train_op = cifar10.train(sm_loss, sm_global_step)
 
+    # Medium sized model trained on labels
+    with tf.variable_scope('med_star') as scope:
+      mds_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
+      mds_loss = cifar10.loss(mds_logits, labels)
+      scope.reuse_variables()
+      mds_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
+      mds_top_k_op = tf.nn.in_top_k(mds_logits_ev, labels_ev, 1)
+      mds_train_op = cifar10.train(mds_loss, mds_global_step)
+
+    # Small sized model trained on labels
     with tf.variable_scope('sml_star') as scope:
       sms_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
       sms_loss = cifar10.loss(sms_logits, labels)
@@ -261,13 +275,41 @@ def train_simult():
       sms_top_k_op = tf.nn.in_top_k(sms_logits_ev, labels_ev, 1)
       sms_train_op = cifar10.train(sms_loss, sms_global_step)
 
-    with tf.variable_scope('med_star') as scope:
-      mds_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
-      mds_loss = cifar10.loss(mds_logits, labels)
+    # Medium sized model trained on large model, delayed start
+    with tf.variable_scope('med_l') as scope:
+      md_l_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
+      md_l_loss = cifar10.loss(md_l_logits, lg_targets)
       scope.reuse_variables()
-      mds_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
-      mds_top_k_op = tf.nn.in_top_k(mds_logits_ev, labels_ev, 1)
-      mds_train_op = cifar10.train(mds_loss, mds_global_step)
+      md_l_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
+      md_l_top_k_op = tf.nn.in_top_k(md_l_logits_ev, labels_ev, 1)
+      md_l_train_op = cifar10.train(md_l_loss, md_l_global_step)
+
+    # Small sized model trained on medium model, delayed start
+    with tf.variable_scope('sml_l') as scope:
+      sm_l_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
+      sm_l_loss = cifar10.loss(sm_l_logits, md_targets)
+      scope.reuse_variables()
+      sm_l_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
+      sm_l_top_k_op = tf.nn.in_top_k(sm_l_logits_ev, labels_ev, 1)
+      sm_l_train_op = cifar10.train(sm_l_loss, sm_l_global_step)
+
+    # Medium sized model trained on labels, delayed start
+    with tf.variable_scope('med_star_l') as scope:
+      mds_l_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
+      mds_l_loss = cifar10.loss(mds_l_logits, labels)
+      scope.reuse_variables()
+      mds_l_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
+      mds_l_top_k_op = tf.nn.in_top_k(mds_l_logits_ev, labels_ev, 1)
+      mds_l_train_op = cifar10.train(mds_l_loss, mds_l_global_step)
+
+    # Small sized model trained on labels, delayed start
+    with tf.variable_scope('sml_star_l') as scope:
+      sms_l_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
+      sms_l_loss = cifar10.loss(sms_l_logits, labels)
+      scope.reuse_variables()
+      sms_l_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
+      sms_l_top_k_op = tf.nn.in_top_k(sms_l_logits_ev, labels_ev, 1)
+      sms_l_train_op = cifar10.train(sms_l_loss, sms_l_global_step)
 
 
     # Create a saver.
@@ -289,6 +331,9 @@ def train_simult():
 
     summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
 
+    num_examples = 10000
+    num_iter = int(np.ceil(num_examples / FLAGS.batch_size))
+    total_sample_count = (num_iter-1) * FLAGS.batch_size
     
     accuracy = []
     losses = []
@@ -302,16 +347,23 @@ def train_simult():
       if step < 5000:
         _, loss_value, __, lg_loss_value = sess.run([train_op,
           loss, lg_train_op, lg_loss])
-      elif step < 7000:
+      elif step < 10000:
         (_, loss_value, __, lg_loss_value, ___, md_val,
-          ___s, mds_val) = sess.run([train_op,
+          ___s) = sess.run([train_op,
           loss, lg_train_op, lg_loss, md_train_op, md_loss,
-          mds_train_op, mds_loss])
-      else:
-        (_, loss_value, __, lg_loss_value, ___, md_val, ____, sm_val
-          ___s, mds_val, ____s, sms_val) = sess.run([train_op,
+          mds_train_op])
+      elif step < 1E5:
+        (_, loss_value, __, lg_loss_value, ___, md_val, ____, sm_val,
+          ___s,  ____s) = sess.run([train_op,
           loss, lg_train_op, lg_loss, md_train_op, md_loss, sm_train_op, sm_loss,
-          mds_train_op, mds_loss, sms_train_op, sms_loss])
+          mds_train_op, sms_train_op])
+      else:
+        (_, loss_value, __, lg_loss_value, ___, md_val, ____, sm_val,
+          ___s,  ____s, __mlto, __slto,
+          __mslto, __sslto) = sess.run([train_op,
+          loss, lg_train_op, lg_loss, md_train_op, md_loss, sm_train_op, sm_loss,
+          mds_train_op, sms_train_op, md_l_train_op, sm_l_train_op,
+          mds_l_train_op, sms_l_train_op])
       duration = time.time() - start_time
 
       assert not np.isnan(lg_loss_value), 'Model diverged with loss = NaN'
@@ -328,26 +380,23 @@ def train_simult():
         print (format_str % (datetime.now(), step, loss_value, lg_loss_value, md_val,
                              sm_val, examples_per_sec, sec_per_batch))
 
-      if step % 100 == 0:
+      if step % 500 == 0:
         summary_str = sess.run(summary_op)
         summary_writer.add_summary(summary_str, step)
-        num_examples = 10000
-        num_iter = int(np.ceil(num_examples / FLAGS.batch_size))
-        total_sample_count = (num_iter-1) * FLAGS.batch_size
-        total_sample_count2 = 0
-        true_count = np.zeros(4)
+        true_count = np.zeros(10)
         #eval_step = 0
         #while eval_step < num_iter-1:
         for eval_step in xrange(num_iter-1):
           predictions = sess.run([top_k_op,
-            lg_top_k_op, md_top_k_op, sm_top_k_op])
+            lg_top_k_op, md_top_k_op, sm_top_k_op,
+            mds_top_k_op, sms_top_k_op, md_l_top_k_op, sm_l_top_k_op,
+            mds_l_top_k_op, sms_l_top_k_op])
           predictions = np.array(predictions)
           true_count += np.sum(predictions, axis=1)
-          total_sample_count2 += predictions.shape[1]
           #eval_step += 1
 
         precision = true_count / total_sample_count 
-        print (precision, total_sample_count, total_sample_count2)
+        print (precision)
         accuracy.append(precision)
 
       # Save the model checkpoint periodically.

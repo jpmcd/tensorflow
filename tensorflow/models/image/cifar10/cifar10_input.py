@@ -220,7 +220,7 @@ def distorted_inputs(data_dir, batch_size):
                                          min_queue_examples, batch_size)
 
 
-def inputs(eval_data, data_dir, batch_size):
+def inputs(eval_data, data_dir, batch_size, shuffle=True):
   """Construct input for CIFAR evaluation using the Reader ops.
 
   Args:
@@ -270,5 +270,9 @@ def inputs(eval_data, data_dir, batch_size):
                            min_fraction_of_examples_in_queue)
 
   # Generate a batch of images and labels by building up a queue of examples.
-  return _generate_image_and_label_batch(float_image, read_input.label,
-                                         min_queue_examples, batch_size)
+  if not eval_data:
+    return _generate_image_and_label_batch(float_image, read_input.label,
+      min_queue_examples, batch_size)
+  else:
+    return _generate_unshuffled_image_and_label_batch(float_image,
+      read_input.label, min_queue_examples, batch_size)
