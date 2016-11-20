@@ -148,7 +148,7 @@ def _generate_unshuffled_image_and_label_batch(image, label,
     labels: Labels. 1D tensor of [batch_size] size.
   """
   # Create a queue and then read 'batch_size' images + labels from the example queue.
-  num_preprocess_threads = 16
+  num_preprocess_threads = 1 
   images, label_batch = tf.train.batch(
       [image, label],
       batch_size=batch_size,
@@ -220,7 +220,7 @@ def distorted_inputs(data_dir, batch_size):
                                          min_queue_examples, batch_size)
 
 
-def inputs(eval_data, data_dir, batch_size, shuffle=True):
+def inputs(eval_data, data_dir, batch_size):
   """Construct input for CIFAR evaluation using the Reader ops.
 
   Args:

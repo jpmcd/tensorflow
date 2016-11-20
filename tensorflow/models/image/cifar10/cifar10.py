@@ -54,8 +54,8 @@ tf.app.flags.DEFINE_integer('batch_size', 100,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_string('data_dir', '/scratch/cifar10_data',
                            """Path to the CIFAR-10 data directory.""")
-tf.app.flags.DEFINE_float('temp', 1.,
-                          """Distillation temperature for training.""")
+#tf.app.flags.DEFINE_float('temp', 1.,
+#                          """Distillation temperature for training.""")
 
 # Global constants describing the CIFAR-10 data set.
 IMAGE_SIZE = cifar10_input.IMAGE_SIZE
@@ -425,9 +425,6 @@ def inference_small(images, conv1_channels=64,
     biases = _variable_on_cpu('biases', [NUM_CLASSES],
                               tf.constant_initializer(0.0))
     softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
-#    temp = tf.constant(FLAGS.temp)
-#    softmax_linear = tf.div(tf.add(tf.matmul(local4, weights), biases),
-#                            temp, name=scope.name)
     _activation_summary(softmax_linear)
 
   return softmax_linear
@@ -537,8 +534,9 @@ def train(total_loss, global_step):
   var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope_name)
   with tf.control_dependencies([loss_averages_op]):
     opt = tf.train.GradientDescentOptimizer(lr)
-    loss_w_temp = tf.mul(tf.constant(FLAGS.temp), total_loss)
-    grads = opt.compute_gradients(loss_w_temp, var_list=var_list)
+    #loss_w_temp = tf.mul(tf.constant(FLAGS.temp), total_loss)
+    #grads = opt.compute_gradients(loss_w_temp, var_list=var_list)
+    grads = opt.compute_gradients(total_loss, var_list=var_list)
 
   # Apply gradients.
   apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)

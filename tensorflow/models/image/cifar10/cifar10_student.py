@@ -232,8 +232,9 @@ def train_simult():
       lg_logits = cifar10.inference(images)
       lg_targets = cifar10.multinomial(lg_logits)
 
-      # Calculate loss according to multinomial sampled labels
-      lg_loss = cifar10.loss(lg_logits, targets)
+      # Calculate loss according to multinomial sampled target predictions,
+      # equally weighted against original loss with labels.
+      lg_loss = tf.add(loss, cifar10.loss(lg_logits, targets))
 
       scope.reuse_variables()
       lg_logits_ev = cifar10.inference(images_ev)
@@ -243,7 +244,7 @@ def train_simult():
     with tf.variable_scope('med') as scope:
       md_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
       md_targets = cifar10.multinomial(md_logits)
-      md_loss = cifar10.loss(md_logits, lg_targets)
+      md_loss = tf.add(loss, cifar10.loss(md_logits, lg_targets))
       scope.reuse_variables()
       md_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
       md_top_k_op = tf.nn.in_top_k(md_logits_ev, labels_ev, 1)
@@ -251,14 +252,14 @@ def train_simult():
 
     with tf.variable_scope('sml') as scope:
       sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
-      sm_loss = cifar10.loss(sm_logits, md_targets)
+      sm_loss = tf.add(loss, cifar10.loss(sm_logits, md_targets))
       scope.reuse_variables()
       sm_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
       sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
       sm_train_op = cifar10.train(sm_loss, sm_global_step)
 
     # Medium sized model trained on labels
-    with tf.variable_scope('med_star') as scope:
+    with tf.variable_scope('med_lab') as scope:
       mds_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
       mds_loss = cifar10.loss(mds_logits, labels)
       scope.reuse_variables()
@@ -267,7 +268,7 @@ def train_simult():
       mds_train_op = cifar10.train(mds_loss, mds_global_step)
 
     # Small sized model trained on labels
-    with tf.variable_scope('sml_star') as scope:
+    with tf.variable_scope('sml_lab') as scope:
       sms_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
       sms_loss = cifar10.loss(sms_logits, labels)
       scope.reuse_variables()
@@ -276,25 +277,25 @@ def train_simult():
       sms_train_op = cifar10.train(sms_loss, sms_global_step)
 
     # Medium sized model trained on large model, delayed start
-    with tf.variable_scope('med_l') as scope:
+    with tf.variable_scope('med_late') as scope:
       md_l_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
-      md_l_loss = cifar10.loss(md_l_logits, lg_targets)
+      md_l_loss = tf.add(loss, cifar10.loss(md_l_logits, lg_targets))
       scope.reuse_variables()
       md_l_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
       md_l_top_k_op = tf.nn.in_top_k(md_l_logits_ev, labels_ev, 1)
       md_l_train_op = cifar10.train(md_l_loss, md_l_global_step)
 
     # Small sized model trained on medium model, delayed start
-    with tf.variable_scope('sml_l') as scope:
+    with tf.variable_scope('sml_late') as scope:
       sm_l_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
-      sm_l_loss = cifar10.loss(sm_l_logits, md_targets)
+      sm_l_loss = tf.add(loss, cifar10.loss(sm_l_logits, md_targets))
       scope.reuse_variables()
       sm_l_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
       sm_l_top_k_op = tf.nn.in_top_k(sm_l_logits_ev, labels_ev, 1)
       sm_l_train_op = cifar10.train(sm_l_loss, sm_l_global_step)
 
     # Medium sized model trained on labels, delayed start
-    with tf.variable_scope('med_star_l') as scope:
+    with tf.variable_scope('med_lab_late') as scope:
       mds_l_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
       mds_l_loss = cifar10.loss(mds_l_logits, labels)
       scope.reuse_variables()
@@ -303,7 +304,7 @@ def train_simult():
       mds_l_train_op = cifar10.train(mds_l_loss, mds_l_global_step)
 
     # Small sized model trained on labels, delayed start
-    with tf.variable_scope('sml_star_l') as scope:
+    with tf.variable_scope('sml_lab_late') as scope:
       sms_l_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
       sms_l_loss = cifar10.loss(sms_l_logits, labels)
       scope.reuse_variables()
@@ -337,6 +338,11 @@ def train_simult():
     
     accuracy = []
     losses = []
+
+#    if True:
+#      for step in range(10000):
+#        V0, V1, V2 = sess.run([images_ev[0,0,0,0], images_ev[1,0,0,0], images_ev[2,0,0,0]])
+#        print(step, V0, V1, V2)
 
     sm_val = 0.0
     md_val = 0.0
