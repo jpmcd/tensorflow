@@ -430,7 +430,7 @@ def inference_small(images, conv1_channels=64,
   return softmax_linear
 
 
-def multinomial(logits):
+def multinomial(logits, labels, mix_label=True):
   """Sample labels according to multinomial distribution on logits.
 
   Produce labels sampled according to multinomial distribution
@@ -444,8 +444,14 @@ def multinomial(logits):
   Returns:
     Labels tensor of type int.
   """
-  targets = tf.argmax(logits -
-    tf.log(-tf.log(tf.random_uniform(tf.shape(logits), maxval=1))), 1)
+  targets = tf.cast(tf.argmax(logits -
+    tf.log(-tf.log(tf.random_uniform(tf.shape(logits), maxval=1))), 1), tf.int32)
+  if mix_label:
+    mask = tf.cast(tf.floor(tf.random_uniform(tf.shape(labels), maxval=2)), tf.int32)
+    mask_neg = tf.add(tf.constant(1), tf.neg(mask))
+    #TEST1 = tf.mul(mask, targets)
+    #TEST2 = tf.mul(mask_neg, labels)
+    targets = tf.add(tf.mul(mask, targets), tf.mul(mask_neg, labels))
 
   return targets
 

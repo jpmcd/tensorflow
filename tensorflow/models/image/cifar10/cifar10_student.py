@@ -120,7 +120,8 @@ def train():
     images = tf.placeholder(tf.float32, shape=(None, IMAGE_HEIGHT,
                             IMAGE_WIDTH, IMAGE_DEPTH))
     logits = tf.placeholder(tf.float32, shape=(None, NUM_CLASSES)) 
-    targets = cifar10.multinomial(logits)
+    labels = tf.placeholder(tf.int32, shape=None)
+    targets = cifar10.multinomial(logits, labels)
 
     with tf.variable_scope('student') as s_scope:
       # Build a Graph that computes the logits predictions from the
@@ -212,7 +213,7 @@ def train_simult():
       # Build a Graph that computes the logits predictions from the
       # inference model.
       logits = cifar10.inference(images)
-      targets = cifar10.multinomial(logits) 
+      targets = cifar10.multinomial(logits, labels) 
 
       # Calculate loss.
       loss = cifar10.loss(logits, labels)
@@ -230,11 +231,12 @@ def train_simult():
       # Student graph that computes the logits predictions from the
       # inference model.
       lg_logits = cifar10.inference(images)
-      lg_targets = cifar10.multinomial(lg_logits)
+      lg_targets = cifar10.multinomial(lg_logits, labels)
 
       # Calculate loss according to multinomial sampled target predictions,
       # equally weighted against original loss with labels.
-      lg_loss = tf.add(loss, cifar10.loss(lg_logits, targets))
+      #lg_loss = tf.add(loss, cifar10.loss(lg_logits, targets))
+      lg_loss = cifar10.loss(lg_logits, targets)
 
       scope.reuse_variables()
       lg_logits_ev = cifar10.inference(images_ev)
@@ -243,8 +245,9 @@ def train_simult():
 
     with tf.variable_scope('med') as scope:
       md_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
-      md_targets = cifar10.multinomial(md_logits)
-      md_loss = tf.add(loss, cifar10.loss(md_logits, lg_targets))
+      md_targets = cifar10.multinomial(md_logits, labels)
+      #md_loss = tf.add(loss, cifar10.loss(md_logits, lg_targets))
+      md_loss = cifar10.loss(md_logits, lg_targets)
       scope.reuse_variables()
       md_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
       md_top_k_op = tf.nn.in_top_k(md_logits_ev, labels_ev, 1)
@@ -252,7 +255,8 @@ def train_simult():
 
     with tf.variable_scope('sml') as scope:
       sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
-      sm_loss = tf.add(loss, cifar10.loss(sm_logits, md_targets))
+      #sm_loss = tf.add(loss, cifar10.loss(sm_logits, md_targets))
+      sm_loss = cifar10.loss(sm_logits, md_targets)
       scope.reuse_variables()
       sm_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
       sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
@@ -279,7 +283,8 @@ def train_simult():
     # Medium sized model trained on large model, delayed start
     with tf.variable_scope('med_late') as scope:
       md_l_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
-      md_l_loss = tf.add(loss, cifar10.loss(md_l_logits, lg_targets))
+      #md_l_loss = tf.add(loss, cifar10.loss(md_l_logits, lg_targets))
+      md_l_loss = cifar10.loss(md_l_logits, lg_targets)
       scope.reuse_variables()
       md_l_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
       md_l_top_k_op = tf.nn.in_top_k(md_l_logits_ev, labels_ev, 1)
@@ -288,7 +293,8 @@ def train_simult():
     # Small sized model trained on medium model, delayed start
     with tf.variable_scope('sml_late') as scope:
       sm_l_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
-      sm_l_loss = tf.add(loss, cifar10.loss(sm_l_logits, md_targets))
+      #sm_l_loss = tf.add(loss, cifar10.loss(sm_l_logits, md_targets))
+      sm_l_loss = cifar10.loss(sm_l_logits, md_targets)
       scope.reuse_variables()
       sm_l_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
       sm_l_top_k_op = tf.nn.in_top_k(sm_l_logits_ev, labels_ev, 1)
@@ -333,8 +339,9 @@ def train_simult():
     summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
 
     num_examples = 10000
-    num_iter = int(np.ceil(num_examples / FLAGS.batch_size))
-    total_sample_count = (num_iter-1) * FLAGS.batch_size
+    num_iter = int(np.floor(num_examples / FLAGS.batch_size))
+    total_sample_count = (num_iter) * FLAGS.batch_size
+    print(num_iter, total_sample_count)
     
     accuracy = []
     losses = []
@@ -390,9 +397,7 @@ def train_simult():
         summary_str = sess.run(summary_op)
         summary_writer.add_summary(summary_str, step)
         true_count = np.zeros(10)
-        #eval_step = 0
-        #while eval_step < num_iter-1:
-        for eval_step in xrange(num_iter-1):
+        for eval_step in xrange(num_iter):
           predictions = sess.run([top_k_op,
             lg_top_k_op, md_top_k_op, sm_top_k_op,
             mds_top_k_op, sms_top_k_op, md_l_top_k_op, sm_l_top_k_op,
