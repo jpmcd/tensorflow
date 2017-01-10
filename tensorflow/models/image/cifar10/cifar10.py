@@ -430,7 +430,8 @@ def inference_small(images, conv1_channels=64,
   return softmax_linear
 
 
-def multinomial(logits, labels, mix_label=True):
+def multinomial(logits):
+#def multinomial(logits, labels, mix_label=False):
   """Sample labels according to multinomial distribution on logits.
 
   Produce labels sampled according to multinomial distribution
@@ -446,18 +447,20 @@ def multinomial(logits, labels, mix_label=True):
   """
   targets = tf.cast(tf.argmax(logits -
     tf.log(-tf.log(tf.random_uniform(tf.shape(logits), maxval=1))), 1), tf.int32)
-  if mix_label:
-    mask = tf.cast(tf.floor(tf.random_uniform(tf.shape(labels), maxval=2)), tf.int32)
-    mask_neg = tf.add(tf.constant(1), tf.neg(mask))
-    targets = tf.add(tf.mul(mask, targets), tf.mul(mask_neg, labels))
+#  if mix_label:
+#    mask = tf.cast(tf.floor(tf.random_uniform(tf.shape(labels), maxval=2)), tf.int32)
+#    mask_neg = tf.add(tf.constant(1), tf.neg(mask))
+#    targets = tf.add(tf.mul(mask, targets), tf.mul(mask_neg, labels))
 
   return targets
 
 
 def mix(labels_1, labels_2):
-  """Mix labels from 
+  """Mix labels from two sources in even proportion.
 
   """
+  assert labels_1.dtype == tf.int32
+  assert labels_2.dtype == tf.int32
   mask = tf.cast(tf.floor(tf.random_uniform(tf.shape(labels_1), maxval=2)), tf.int32)
   mask_neg = tf.add(tf.constant(1), tf.neg(mask))
   targets = tf.add(tf.mul(mask, labels_1), tf.mul(mask_neg, labels_2))
