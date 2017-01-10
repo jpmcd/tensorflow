@@ -449,9 +449,18 @@ def multinomial(logits, labels, mix_label=True):
   if mix_label:
     mask = tf.cast(tf.floor(tf.random_uniform(tf.shape(labels), maxval=2)), tf.int32)
     mask_neg = tf.add(tf.constant(1), tf.neg(mask))
-    #TEST1 = tf.mul(mask, targets)
-    #TEST2 = tf.mul(mask_neg, labels)
     targets = tf.add(tf.mul(mask, targets), tf.mul(mask_neg, labels))
+
+  return targets
+
+
+def mix(labels_1, labels_2):
+  """Mix labels from 
+
+  """
+  mask = tf.cast(tf.floor(tf.random_uniform(tf.shape(labels_1), maxval=2)), tf.int32)
+  mask_neg = tf.add(tf.constant(1), tf.neg(mask))
+  targets = tf.add(tf.mul(mask, labels_1), tf.mul(mask_neg, labels_2))
 
   return targets
 

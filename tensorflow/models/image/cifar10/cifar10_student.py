@@ -201,6 +201,7 @@ def train_simult():
     sm_l_global_step = tf.Variable(0, trainable=False)
     mds_l_global_step = tf.Variable(0, trainable=False)
     sms_l_global_step = tf.Variable(0, trainable=False)
+    t_m_global_step = tf.Variable(0, trainable=False)
 
     # Get images and labels for CIFAR-10.
     with tf.device('/cpu:0'):
@@ -243,7 +244,7 @@ def train_simult():
       lg_top_k_op = tf.nn.in_top_k(lg_logits_ev, labels_ev, 1)
       lg_train_op = cifar10.train(lg_loss, lg_global_step)
 
-    with tf.variable_scope('med') as scope:
+    with tf.variable_scope('t.l.m') as scope:
       md_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
       md_targets = cifar10.multinomial(md_logits, labels)
       #md_loss = tf.add(loss, cifar10.loss(md_logits, lg_targets))
@@ -253,6 +254,15 @@ def train_simult():
       md_top_k_op = tf.nn.in_top_k(md_logits_ev, labels_ev, 1)
       md_train_op = cifar10.train(md_loss, md_global_step)
 
+    with tf.variable_scope('t.m') as scope:
+      t_m_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
+      #md_loss = tf.add(loss, cifar10.loss(md_logits, lg_targets))
+      t_m_loss = cifar10.loss(t_m_logits, targets)
+      scope.reuse_variables()
+      t_m_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
+      t_m_top_k_op = tf.nn.in_top_k(t_m_logits_ev, labels_ev, 1)
+      t_m_train_op = cifar10.train(t_m_loss, t_m_global_step)
+
     with tf.variable_scope('sml') as scope:
       sm_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
       #sm_loss = tf.add(loss, cifar10.loss(sm_logits, md_targets))
@@ -261,6 +271,24 @@ def train_simult():
       sm_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
       sm_top_k_op = tf.nn.in_top_k(sm_logits_ev, labels_ev, 1)
       sm_train_op = cifar10.train(sm_loss, sm_global_step)
+
+    with tf.variable_scope('t.s') as scope:
+      t_m_logits = cifar10.inference_vars(images, 32, 32, 96, 48)
+      #md_loss = tf.add(loss, cifar10.loss(md_logits, lg_targets))
+      t_m_loss = cifar10.loss(t_m_logits, targets)
+      scope.reuse_variables()
+      t_m_logits_ev = cifar10.inference_vars(images_ev, 32, 32, 96, 48)
+      t_m_top_k_op = tf.nn.in_top_k(t_m_logits_ev, labels_ev, 1)
+      t_m_train_op = cifar10.train(t_m_loss, t_m_global_step)
+
+    # Large sized model trained on labels
+    with tf.variable_scope('lrg_lab') as scope:
+      lgl_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
+      lgl_loss = cifar10.loss(lgl_logits, labels)
+      scope.reuse_variables()
+      lgl_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
+      lgl_top_k_op = tf.nn.in_top_k(mds_logits_ev, labels_ev, 1)
+      lgl_train_op = cifar10.train(mds_loss, mds_global_step)
 
     # Medium sized model trained on labels
     with tf.variable_scope('med_lab') as scope:
