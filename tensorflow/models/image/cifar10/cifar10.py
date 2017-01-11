@@ -458,14 +458,21 @@ def multinomial(logits):
 def mix(labels_1, labels_2):
   """Mix labels from two sources in even proportion.
 
+  Args:
+    labels_1: Labels from first source.
+    labels_2: Labels from second source.
+
+  Returns:
+    Labels tensor of type int.
   """
   assert labels_1.dtype == tf.int32
   assert labels_2.dtype == tf.int32
+
   mask = tf.cast(tf.floor(tf.random_uniform(tf.shape(labels_1), maxval=2)), tf.int32)
   mask_neg = tf.add(tf.constant(1), tf.neg(mask))
   targets = tf.add(tf.mul(mask, labels_1), tf.mul(mask_neg, labels_2))
 
-  return targets
+  return targets, mask, mask_neg
 
 
 def loss(logits, labels):
