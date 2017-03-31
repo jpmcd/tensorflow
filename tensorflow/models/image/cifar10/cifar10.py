@@ -472,7 +472,7 @@ def mix(labels_1, labels_2):
   mask_neg = tf.add(tf.constant(1), tf.neg(mask))
   targets = tf.add(tf.mul(mask, labels_1), tf.mul(mask_neg, labels_2))
 
-  return targets, mask, mask_neg
+  return targets
 
 
 def loss(logits, labels):

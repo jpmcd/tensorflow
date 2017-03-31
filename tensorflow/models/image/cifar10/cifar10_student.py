@@ -37,6 +37,7 @@ from __future__ import division
 from __future__ import print_function
 
 from datetime import datetime
+from datetime import date
 import os.path
 import time
 
@@ -213,11 +214,11 @@ def train_simult():
       with tf.variable_scope('eval') as scope:
         images_ev, labels_ev = cifar10.inputs(eval_data='test')
 
-    with tf.variable_scope('t') as scope:
+    with tf.variable_scope('model') as scope:
       # Build a Graph that computes the logits predictions from the
       # inference model.
       logits = cifar10.inference(images)
-      targets, mask, mask_neg = cifar10.mix(cifar10.multinomial(logits), labels) 
+      targets = cifar10.mix(cifar10.multinomial(logits), labels) 
 
       # Calculate loss.
       loss = cifar10.loss(logits, labels)
@@ -235,7 +236,7 @@ def train_simult():
       # Student graph that computes the logits predictions from the
       # inference model.
       tl_logits = cifar10.inference(images)
-      tl_targets, _, __ = cifar10.mix(cifar10.multinomial(tl_logits), labels)
+      tl_targets = cifar10.mix(cifar10.multinomial(tl_logits), labels)
 
       # Calculate loss according to multinomial sampled target predictions,
       # equally weighted against original loss with labels.
@@ -249,7 +250,7 @@ def train_simult():
 
     with tf.variable_scope('t.l.m') as scope:
       tlm_logits = cifar10.inference_vars(images, 48, 48, 192, 96)
-      tlm_targets, _, __ = cifar10.mix(cifar10.multinomial(tlm_logits), labels)
+      tlm_targets = cifar10.mix(cifar10.multinomial(tlm_logits), labels)
       tlm_loss = cifar10.loss(tlm_logits, tl_targets)
       scope.reuse_variables()
       tlm_logits_ev = cifar10.inference_vars(images_ev, 48, 48, 192, 96)
@@ -371,13 +372,13 @@ def train_simult():
     accuracy = []
     losses = []
 
-    if True:
+#    if True:
 #      for step in range(3):
 #        M1, M2 = sess.run([mask, mask_neg])
 #        print(np.array([M1, M2]).T)
-      for step in range(10000):
-        V0, V1, V2 = sess.run([images_ev[0,0,0,0], images_ev[1,0,0,0], images_ev[2,0,0,0]])
-        print(step, V0, V1, V2)
+#      for step in range(10000):
+#        V0, V1, V2 = sess.run([images_ev[0,0,0,0], images_ev[1,0,0,0], images_ev[2,0,0,0]])
+#        print(step, V0, V1, V2)
 
     sm_val = 0.0
     md_val = 0.0
@@ -422,12 +423,12 @@ def train_simult():
 
         format_str = ('%s: step %d, loss = %.2f, lg_loss = %.2f, md_loss = %.2f, '
                       'sm_loss = %.2f, (%.1f examples/sec; %.3f sec/batch)')
-        print (format_str % (datetime.now(), step, loss_value, tl_loss_value,
+        print (format_str % (datetime.now(), step, loss_value, tl_loss_val,
           m_loss_val, s_loss_val, examples_per_sec, sec_per_batch))
 
       if step % 500 == 0:
-        summary_str = sess.run(summary_op)
-        summary_writer.add_summary(summary_str, step)
+        #summary_str = sess.run(summary_op)
+        #summary_writer.add_summary(summary_str, step)
         true_count = np.zeros(9)
         for eval_step in xrange(num_iter):
           predictions = sess.run([top_k_op,
@@ -450,7 +451,7 @@ def train_simult():
 
         eval_history = np.array(accuracy).T
         #loss_history = np.array(losses).T
-        np.save(os.path.join(FLAGS.train_dir, 'eval_history'), eval_history)
+        np.save(os.path.join(FLAGS.train_dir, 'eval_history%s'%date.today()), eval_history)
         #np.save(os.path.join(FLAGS.train_dir, 'loss_history'), loss_history)
 
 
