@@ -47,11 +47,12 @@ import time
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
-from tensorflow.models.image.cifar10 import cifar10
+#from tensorflow.models.image.cifar10 import cifar10
+import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('train_dir', '/tmp/cifar10_train',
+tf.app.flags.DEFINE_string('train_dir', '/scratch/mcdonald/cifar10_train',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
@@ -200,7 +201,7 @@ def train():
 
     # Add histograms for gradients.
     for grad, var in grads:
-      if grad:
+      if grad is not None:
         summaries.append(
             tf.histogram_summary(var.op.name + '/gradients', grad))
 

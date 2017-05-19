@@ -52,7 +52,7 @@ FLAGS = tf.app.flags.FLAGS
 # Basic model parameters.
 tf.app.flags.DEFINE_integer('batch_size', 100,
                             """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_string('data_dir', '/scratch/cifar10_data',
+tf.app.flags.DEFINE_string('data_dir', '/scratch/mcdonald/cifar10_data',
                            """Path to the CIFAR-10 data directory.""")
 #tf.app.flags.DEFINE_float('temp', 1.,
 #                          """Distillation temperature for training.""")
